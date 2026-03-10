@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product in the DTHC catalog.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the product." },
+        "name": { "type": "string", "description": "The name of the product." },
+        "price": { "type": "number", "description": "The price of the product in GHS." },
+        "category": { "type": "string", "enum": ["Tees", "Sneakers", "Accessories"], "description": "The category of the product." },
+        "image": { "type": "string", "format": "url", "description": "The URL of the product image." },
+        "description": { "type": "string", "description": "A detailed description of the product." },
+        "isNew": { "type": "boolean", "description": "Whether the product is a new arrival." },
+        "isBestseller": { "type": "boolean", "description": "Whether the product is a bestseller." },
+        "inStock": { "type": "boolean", "description": "Whether the product is currently in stock." },
+        "stockCount": { "type": "integer", "description": "Current inventory count." },
+        "flashSalePrice": { "type": "number", "description": "Discounted price during flash sale." },
+        "flashSaleEnd": { "type": "string", "format": "date-time", "description": "When the flash sale ends." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "The timestamp when the product was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "The timestamp when the product was last updated." }
+      },
+      "required": ["name", "price", "category", "image", "description", "inStock"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"] },
+        "shippingAddress": { "type": "object" },
+        "paymentMethod": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "items", "total", "status", "shippingAddress"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A product review.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "userId", "rating", "comment"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "A discount coupon.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "discountType": { "type": "string", "enum": ["percentage", "fixed"] },
+        "value": { "type": "number" },
+        "expiryDate": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["code", "discountType", "value", "isActive"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user of the application.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "wishlist": { "type": "array", "items": { "type": "string" }, "description": "Array of product IDs in the user's wishlist." }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of all products available in the shop."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Product reviews."
+    },
+    "/coupons/{couponId}": {
+      "schema": "Coupon",
+      "description": "Discount coupons."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles and roles."
+    }
+  }
+}
