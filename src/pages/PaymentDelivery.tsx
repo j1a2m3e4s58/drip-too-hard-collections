@@ -2,6 +2,7 @@
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { Clock, CreditCard, MapPin, ShieldCheck, Smartphone, Truck } from 'lucide-react';
 import { db } from '../firebase';
+import { formatGhanaCedis } from '../lib/utils';
 import { DeliveryZone, StoreSettings } from '../types';
 import { defaultDeliveryZones, defaultStoreSettings, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 
@@ -36,7 +37,7 @@ const PaymentDelivery = () => {
             <InfoCard icon={MapPin} title="Base Location" text={settings.baseLocation} />
             <InfoCard icon={Truck} title="Zone-Based Delivery" text={settings.deliveryMessage} />
             <InfoCard icon={Clock} title="Active Delivery Zones" text="Only zones switched on in admin appear here and are used for customer-facing delivery messaging." />
-            <div className="space-y-4">{zones.map((item) => <div key={item.id} className="rounded-[1.5rem] border border-white/10 bg-zinc-900 p-6"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><h3 className="text-2xl font-bold">{item.name}</h3><p className="font-semibold text-orange-400">GHS {item.fee.toFixed(2)}</p></div><p className="mt-2 text-white/60">{item.eta}</p>{item.notes && <p className="mt-2 text-sm text-white/40">{item.notes}</p>}</div>)}</div>
+            <div className="space-y-4">{zones.map((item) => <div key={item.id} className="rounded-[1.5rem] border border-white/10 bg-zinc-900 p-6"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><h3 className="text-2xl font-bold">{item.name}</h3><p className="font-semibold text-orange-400">{formatGhanaCedis(item.fee)}</p></div><p className="mt-2 text-white/60">{item.eta}</p>{item.notes && <p className="mt-2 text-sm text-white/40">{item.notes}</p>}</div>)}</div>
           </section>
         </div>
       </div>

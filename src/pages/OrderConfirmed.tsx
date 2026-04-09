@@ -5,6 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Order, StoreSettings } from '../types';
 import { defaultStoreSettings, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
+import { formatGhanaCedis } from '../lib/utils';
 
 const OrderConfirmed = () => {
   const { orderId } = useParams();
@@ -65,7 +66,7 @@ const OrderConfirmed = () => {
             `Customer: ${customerName}`,
             `Tracking Code: ${order.trackingCode || 'Pending'}`,
             `Payment Method: ${order.paymentMethod}`,
-            `Order Total: GHS ${amount.toFixed(2)}`,
+            `Order Total: ${formatGhanaCedis(amount)}`,
             `Delivery Zone: ${zone}`,
             `Phone Number: ${order.shippingAddress.phone}`,
             `Items: ${itemsSummary}`,
@@ -81,7 +82,7 @@ const OrderConfirmed = () => {
             `Customer: ${customerName}`,
             `Tracking Code: ${order.trackingCode || 'Pending'}`,
             `Payment Method: ${order.paymentMethod}`,
-            `Amount Paid: GHS ${amount.toFixed(2)}`,
+            `Amount Paid: ${formatGhanaCedis(amount)}`,
             `Delivery Zone: ${zone}`,
             `Phone Number: ${order.shippingAddress.phone}`,
             `Items: ${itemsSummary}`,
@@ -143,13 +144,13 @@ const OrderConfirmed = () => {
                 />
                 <CopyButton
                   label={copied === 'amount' ? 'Copied' : 'Copy Amount'}
-                  onClick={() => handleCopy('amount', `GHS ${amount.toFixed(2)}`)}
+                  onClick={() => handleCopy('amount', formatGhanaCedis(amount))}
                 />
               </div>
 
               <div className="mt-5 md:mt-6 rounded-[1.35rem] border border-white/10 bg-[rgba(9,9,11,0.34)] p-4 sm:p-5">
                 <p className="text-lg sm:text-xl md:text-2xl font-bold">Payment Method: {order.paymentMethod}</p>
-                <p className="mt-2 md:mt-3 text-lg sm:text-xl md:text-2xl font-bold">Amount: GHS {amount.toFixed(2)}</p>
+                <p className="mt-2 md:mt-3 text-lg sm:text-xl md:text-2xl font-bold">Amount: {formatGhanaCedis(amount)}</p>
               </div>
             </div>
           </section>

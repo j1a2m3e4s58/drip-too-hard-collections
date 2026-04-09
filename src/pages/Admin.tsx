@@ -41,6 +41,7 @@ import {
 import { defaultCollections, defaultDeliveryZones, defaultLookbook, defaultStoreSettings, isLegacyDemoImageUrl, isValidHeroBannerContent, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import ImageSourceField from '../components/admin/ImageSourceField';
 import { importedCatalogProducts, mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
+import { formatGhanaCedis } from '../lib/utils';
 
 type Section = 'products' | 'hero' | 'collections' | 'lookbook' | 'settings' | 'delivery' | 'orders';
 const sectionIds: Section[] = ['products', 'hero', 'collections', 'lookbook', 'settings', 'delivery', 'orders'];
@@ -887,7 +888,7 @@ const Admin = () => {
           {section === 'products' && (
             <div className="grid gap-6 lg:grid-cols-2">
               {products.map((item) => (
-                <MediaCard key={item.id} image={item.image} title={item.name} subtitle={item.description} badges={[item.category, `GHS ${item.price.toFixed(2)}`, `Stock ${item.stockCount ?? 0}`, item.galleryImages?.length ? `${item.galleryImages.length + 1} images` : '', item.sizeOptions?.length ? `${item.sizeOptions.length} sizes` : '', item.featured ? 'Featured' : '', item.inStock ? 'Available' : 'Out']} onEdit={() => openEditor('products', item)} onDelete={() => handleDeleteDoc('products', item.id, 'product')} />
+                  <MediaCard key={item.id} image={item.image} title={item.name} subtitle={item.description} badges={[item.category, formatGhanaCedis(item.price), `Stock ${item.stockCount ?? 0}`, item.galleryImages?.length ? `${item.galleryImages.length + 1} images` : '', item.sizeOptions?.length ? `${item.sizeOptions.length} sizes` : '', item.featured ? 'Featured' : '', item.inStock ? 'Available' : 'Out']} onEdit={() => openEditor('products', item)} onDelete={() => handleDeleteDoc('products', item.id, 'product')} />
               ))}
             </div>
           )}
@@ -926,7 +927,7 @@ const Admin = () => {
                 <div key={item.id} className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/[0.03] p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h3 className="text-2xl sm:text-3xl font-bold">{item.name}</h3>
-                    <p className="text-base sm:text-lg font-semibold text-yellow-300">Delivery Fee: GHS {item.fee.toFixed(2)}</p>
+                          <p className="text-base sm:text-lg font-semibold text-yellow-300">Delivery Fee: {formatGhanaCedis(item.fee)}</p>
                     <p className={item.active ? 'text-emerald-400' : 'text-slate-400'}>Status: {item.active ? 'Active' : 'Inactive'}</p>
                     <p className="text-sm text-slate-400">{item.eta}</p>
                   </div>
@@ -1059,7 +1060,7 @@ const Admin = () => {
                           <img src={item.image} alt={item.name} className="h-20 w-20 rounded-2xl object-cover" />
                           <div className="flex-1">
                             <p className="text-xl font-bold">{item.name}</p>
-                            <p className="text-orange-400">Unit Price: GHS {item.price.toFixed(2)}</p>
+                              <p className="text-orange-400">Unit Price: {formatGhanaCedis(item.price)}</p>
                             <p className="text-white/45">Qty {item.quantity}</p>
                             {item.selectedSize && <p className="text-xs font-semibold uppercase tracking-widest text-white/55">Size {item.selectedSize}</p>}
                           </div>
@@ -1073,9 +1074,9 @@ const Admin = () => {
                       <div className="rounded-[1.25rem] border border-white/10 bg-[rgba(39,39,42,0.72)] p-4 text-sm text-white/75 backdrop-blur-sm">
                         <p className="mb-2 font-bold text-orange-400">Totals</p>
                         <div className="space-y-2">
-                          <div className="flex justify-between"><span>Subtotal</span><span>GHS {(order.subtotal ?? order.total).toFixed(2)}</span></div>
-                          <div className="flex justify-between"><span>Delivery Fee</span><span>GHS {(order.shipping ?? 0).toFixed(2)}</span></div>
-                          <div className="flex justify-between"><span>Total</span><span>GHS {order.total.toFixed(2)}</span></div>
+                        <div className="flex justify-between"><span>Subtotal</span><span>{formatGhanaCedis(order.subtotal ?? order.total)}</span></div>
+                        <div className="flex justify-between"><span>Delivery Fee</span><span>{formatGhanaCedis(order.shipping ?? 0)}</span></div>
+                        <div className="flex justify-between"><span>Total</span><span>{formatGhanaCedis(order.total)}</span></div>
                           <div className="flex justify-between"><span>Payment Status</span><span>{order.paymentStatus || 'Pending'}</span></div>
                           <div className="flex justify-between"><span>Tracking Code</span><span>{order.trackingCode || 'Not set'}</span></div>
                         </div>

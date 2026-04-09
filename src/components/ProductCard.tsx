@@ -5,12 +5,7 @@ import { Product } from '../types';
 import { Link } from 'react-router-dom';
 import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn, formatGhanaCedis } from '../lib/utils';
 
 interface ProductCardProps {
   product: Product;
@@ -118,12 +113,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <div className="text-right">
             {hasFlashSale ? (
               <div className="flex flex-col items-end">
-                <span className="text-[10px] text-white/40 line-through font-mono">GHâ‚µ {product.price}</span>
-                <span className="text-sm font-black text-orange-500 font-mono">GHâ‚µ {product.flashSalePrice}</span>
+                <span className="text-[10px] text-white/40 line-through font-mono">{formatGhanaCedis(product.price)}</span>
+                <span className="text-sm font-black text-orange-500 font-mono">{formatGhanaCedis(product.flashSalePrice)}</span>
               </div>
             ) : (
               <p className="text-sm font-mono text-white/70">
-                GHâ‚µ {product.price}
+                {formatGhanaCedis(product.price)}
               </p>
             )}
           </div>

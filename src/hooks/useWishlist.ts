@@ -4,6 +4,34 @@ import { db, auth, ensureUserProfileDocument } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { UserProfile } from '../types';
 
+const LOCAL_WISHLIST_KEY = 'dthc_guest_wishlist';
+
+const readLocalWishlist = () => {
+  if (typeof window === 'undefined') {
+    return [] as string[];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_WISHLIST_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalWishlist = (wishlist: string[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(LOCAL_WISHLIST_KEY, JSON.stringify(wishlist));
+};
+
 export const useWishlist = () => {
   const [user] = useAuthState(auth);
   const [wishlist, setWishlist] = useState<string[]>([]);
@@ -11,7 +39,7 @@ export const useWishlist = () => {
 
   useEffect(() => {
     if (!user) {
-      setWishlist([]);
+      setWishlist(readLocalWishlist());
       setLoading(false);
       return;
     }
@@ -29,8 +57,49 @@ export const useWishlist = () => {
     return () => unsub();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const syncGuestWishlist = async () => {
+      const guestWishlist = readLocalWishlist();
+      if (!guestWishlist.length) {
+        return;
+      }
+
+      try {
+        await ensureUserProfileDocument(user);
+        await setDoc(
+          doc(db, 'users', user.uid),
+          {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || '',
+            role: 'user',
+            wishlist: Array.from(new Set([...(wishlist || []), ...guestWishlist])),
+          },
+          { merge: true },
+        );
+        writeLocalWishlist([]);
+      } catch (error) {
+        console.error('Error syncing guest wishlist:', error);
+      }
+    };
+
+    void syncGuestWishlist();
+  }, [user]);
+
   const toggleWishlist = async (productId: string) => {
-    if (!user) return;
+    if (!user) {
+      const current = readLocalWishlist();
+      const next = current.includes(productId)
+        ? current.filter((item) => item !== productId)
+        : [...current, productId];
+      writeLocalWishlist(next);
+      setWishlist(next);
+      return;
+    }
 
     const userRef = doc(db, 'users', user.uid);
     const isInWishlist = wishlist.includes(productId);

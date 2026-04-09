@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { useCart } from '../hooks/useCart';
 import { Link } from 'react-router-dom';
+import { formatGhanaCedis } from '../lib/utils';
 
 interface CartProps {
   isOpen: boolean;
@@ -31,8 +32,21 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            drag="x"
+            dragDirectionLock
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={{ left: 0, right: 0.12 }}
+            whileDrag={{ cursor: 'grabbing' }}
+            onDragEnd={(_, info) => {
+              if (info.offset.x > 110 || info.velocity.x > 700) {
+                onClose();
+              }
+            }}
             className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-zinc-950 z-[70] shadow-2xl border-l border-white/10 flex flex-col"
           >
+            <div className="flex justify-center border-b border-white/5 py-2 md:hidden">
+              <div className="h-1.5 w-14 rounded-full bg-white/20" />
+            </div>
             {/* Header */}
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
               <div className="flex items-center space-x-3">
@@ -81,7 +95,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
                           </button>
                         </div>
                         <p className="text-sm font-black text-orange-500 font-mono">
-                          GHâ‚µ {(item.flashSalePrice || item.price) * item.quantity}
+                          {formatGhanaCedis((item.flashSalePrice || item.price) * item.quantity)}
                         </p>
                       </div>
                     </div>
@@ -100,7 +114,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
               <div className="p-6 border-t border-white/10 bg-zinc-900/50 space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-xs uppercase font-bold text-white/50 tracking-widest">Subtotal</span>
-                  <span className="text-xl font-black font-mono">GHâ‚µ {total}</span>
+                  <span className="text-xl font-black font-mono">{formatGhanaCedis(total)}</span>
                 </div>
                 <p className="text-[10px] text-white/30 uppercase tracking-widest text-center">
                   Shipping & taxes calculated at checkout

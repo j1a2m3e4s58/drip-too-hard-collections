@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { LookbookItem, Product, StoreSettings } from '../types';
 import { defaultLookbook, defaultStoreSettings, sanitizeAdminManagedImage, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import { mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
+import { formatGhanaCedis } from '../lib/utils';
 
 const Lookbook = () => {
   const [items, setItems] = useState<LookbookItem[]>(defaultLookbook);
@@ -79,7 +80,7 @@ const Lookbook = () => {
                         className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white/85 transition-colors hover:border-orange-500/40 hover:text-orange-400"
                       >
                         <span className="truncate pr-3">{product.name}</span>
-                        <span className="shrink-0 text-orange-400">GHS {product.flashSalePrice || product.price}</span>
+                        <span className="shrink-0 text-orange-400">{formatGhanaCedis(product.flashSalePrice || product.price)}</span>
                       </Link>
                     ))}
                   </div>

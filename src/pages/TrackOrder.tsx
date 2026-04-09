@@ -4,6 +4,7 @@ import { Loader2, MapPin, PackageCheck, Phone, Search, ShieldCheck, Truck } from
 import { useSearchParams } from 'react-router-dom';
 import { db } from '../firebase';
 import { Order } from '../types';
+import { formatGhanaCedis } from '../lib/utils';
 
 const TrackOrder = () => {
   const [searchParams] = useSearchParams();
@@ -245,7 +246,7 @@ const TrackOrder = () => {
                             <p className="text-sm text-orange-400">Qty {item.quantity}</p>
                             {item.selectedSize && <p className="text-xs font-semibold uppercase tracking-widest text-white/50">Size {item.selectedSize}</p>}
                           </div>
-                          <p className="text-sm font-semibold text-white/75">GHS {(item.price * item.quantity).toFixed(2)}</p>
+                          <p className="text-sm font-semibold text-white/75">{formatGhanaCedis(item.price * item.quantity)}</p>
                         </div>
                     ))}
                   </div>

@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { Collection, Product, StoreSettings } from '../types';
 import { defaultCollections, defaultStoreSettings, sanitizeAdminManagedImage, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import { mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
+import { formatGhanaCedis } from '../lib/utils';
 
 const Collections = () => {
   const [items, setItems] = useState<Collection[]>(defaultCollections);
@@ -102,7 +103,7 @@ const Collections = () => {
                           <div className="p-3">
                             <p className="truncate text-xs font-bold uppercase tracking-tight text-white">{product.name}</p>
                             <p className="mt-2 text-xs font-bold uppercase tracking-widest text-orange-400">
-                              GHS {product.flashSalePrice || product.price}
+                              {formatGhanaCedis(product.flashSalePrice || product.price)}
                             </p>
                           </div>
                         </Link>

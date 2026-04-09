@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, Clock, MapPin, ShoppingBag, Truck, Zap } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
@@ -8,6 +8,7 @@ import ProductCard from '../components/ProductCard';
 import { Collection, DeliveryZone, HeroBanner, Product, StoreSettings } from '../types';
 import { defaultCollections, defaultDeliveryZones, defaultHeroBanners, defaultStoreSettings, isValidHeroBannerContent, sanitizeAdminManagedImage, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import { importedCatalogProducts } from '../lib/importedCatalog';
+import { formatGhanaCedis } from '../lib/utils';
 
 const heroAnimationMap: Record<string, { initial: { opacity: number; x?: number; y?: number; scale?: number }; animate: { opacity: number; x?: number; y?: number; scale?: number }; transition: { duration: number; ease?: string } }> = {
   fade: { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.6 } },
@@ -19,6 +20,7 @@ const heroAnimationMap: Record<string, { initial: { opacity: number; x?: number;
 };
 
 const Home = () => {
+  const navigate = useNavigate();
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
   const [heroBanners, setHeroBanners] = useState<HeroBanner[]>(defaultHeroBanners);
@@ -27,6 +29,7 @@ const Home = () => {
   const [settings, setSettings] = useState<StoreSettings>({ id: 'settings', ...defaultStoreSettings });
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
+  const [heroPointerStart, setHeroPointerStart] = useState<number | null>(null);
 
   useEffect(() => {
     const unsubFeatured = onSnapshot(query(collection(db, 'products'), where('featured', '==', true), limit(4)), (snap) => {
@@ -127,9 +130,70 @@ const Home = () => {
     return `/shop?q=${encodeURIComponent(bubble.title)}`;
   };
 
+  const getHeroTarget = (item: HeroBanner) => {
+    if (item.targetProductId) {
+      return `/shop?ids=${encodeURIComponent(item.targetProductId)}`;
+    }
+
+    if (item.ctaLink) {
+      return item.ctaLink;
+    }
+
+    return item.title ? `/shop?q=${encodeURIComponent(item.title)}` : '/shop';
+  };
+
+  const stepHero = (direction: 'prev' | 'next') => {
+    if (!heroSlides.length) {
+      return;
+    }
+
+    setActiveHeroIndex((current) =>
+      direction === 'next'
+        ? (current + 1) % heroSlides.length
+        : (current - 1 + heroSlides.length) % heroSlides.length,
+    );
+  };
+
+  const handleHeroPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    if (!hero) {
+      return;
+    }
+
+    setHeroPointerStart(event.clientX);
+  };
+
+  const handleHeroPointerEnd = (event: React.PointerEvent<HTMLElement>) => {
+    if (!hero || heroPointerStart === null) {
+      return;
+    }
+
+    const deltaX = event.clientX - heroPointerStart;
+    const interactiveTarget = (event.target as HTMLElement).closest('a, button, input, select, textarea');
+
+    if (deltaX <= -60) {
+      stepHero('next');
+    } else if (deltaX >= 60) {
+      stepHero('prev');
+    } else if (!interactiveTarget) {
+      navigate(getHeroTarget(hero));
+    }
+
+    setHeroPointerStart(null);
+  };
+
+  const clearHeroPointer = () => {
+    setHeroPointerStart(null);
+  };
+
   return (
     <div className="bg-black text-white">
-      <section className="relative min-h-[92svh] md:min-h-screen overflow-hidden">
+      <section
+        className="relative min-h-[92svh] md:min-h-screen overflow-hidden"
+        onPointerDown={handleHeroPointerDown}
+        onPointerUp={handleHeroPointerEnd}
+        onPointerCancel={clearHeroPointer}
+        onPointerLeave={clearHeroPointer}
+      >
         <div className="absolute inset-0 bg-black" />
         {hero?.image ? (
           <motion.img
@@ -156,7 +220,7 @@ const Home = () => {
                 <p className="mb-7 max-w-[18rem] text-[15px] leading-7 text-white/75 sm:max-w-[22rem] sm:text-lg md:mb-10 md:max-w-2xl">{hero.subtitle || settings.homepageDescription}</p>
                 {hero.priceLabel && <p className="mb-5 text-sm font-black uppercase tracking-[0.22em] text-white/85 md:mb-6">{hero.priceLabel}</p>}
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
-                  <Link to={hero.ctaLink || '/shop'} className="inline-flex items-center justify-center gap-2 bg-orange-500 px-6 py-4 text-sm font-black uppercase tracking-widest text-black hover:bg-white md:px-8"><span>{hero.ctaText || 'Shop Now'}</span><ShoppingBag size={18} /></Link>
+                  <Link to={getHeroTarget(hero)} className="inline-flex items-center justify-center gap-2 bg-orange-500 px-6 py-4 text-sm font-black uppercase tracking-widest text-black hover:bg-white md:px-8"><span>{hero.ctaText || 'Shop Now'}</span><ShoppingBag size={18} /></Link>
                   <Link to="/collections" className="inline-flex items-center justify-center gap-2 border border-white/30 bg-black/20 px-6 py-4 text-sm font-black uppercase tracking-widest hover:bg-white hover:text-black md:px-8"><span>View Collections</span><ArrowRight size={18} /></Link>
                 </div>
                 <div className="mt-6 flex gap-3 md:mt-8">
@@ -310,7 +374,7 @@ const Home = () => {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <ValueCard icon={MapPin} title="Base Location" text={settings.baseLocation} />
               <ValueCard icon={Truck} title="Zone-Based Delivery" text={settings.deliveryMessage} />
-              <ValueCard icon={ShoppingBag} title="Free Delivery" text={`Available from GHS ${settings.freeDeliveryThreshold}`} />
+          <ValueCard icon={ShoppingBag} title="Free Delivery" text={`Available from ${formatGhanaCedis(settings.freeDeliveryThreshold)}`} />
             </div>
           </div>
         </div>
@@ -319,7 +383,7 @@ const Home = () => {
       <section className="bg-white py-12 text-black">
         <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div><h4 className="font-black uppercase">Delivery Zones</h4><p className="text-sm opacity-60">Customers only see active delivery zones managed from the admin panel.</p></div>
-          <div className="flex flex-wrap gap-3">{deliveryZones.slice(0, 3).map((item) => <div key={item.id} className="rounded-full bg-black px-5 py-3 text-xs font-bold uppercase tracking-widest text-white">{item.name}: GHS {item.fee}</div>)}</div>
+            <div className="flex flex-wrap gap-3">{deliveryZones.map((item) => <div key={item.id} className="rounded-full bg-black px-5 py-3 text-xs font-bold uppercase tracking-widest text-white">{item.name}: {formatGhanaCedis(item.fee)}</div>)}</div>
           <Link to="/payment-delivery" className="bg-black px-8 py-4 text-xs font-bold uppercase tracking-widest text-white hover:bg-orange-500">Learn More</Link>
         </div>
       </section>

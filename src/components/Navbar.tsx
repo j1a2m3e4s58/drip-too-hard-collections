@@ -2,7 +2,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ShoppingBag, Search, Heart, ArrowRight, Eye, EyeOff, KeyRound, ShieldAlert, Truck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+import { cn, formatGhanaCedis } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
@@ -391,7 +391,7 @@ const Navbar = () => {
                         <div>
                           <p className="text-[10px] text-orange-500 uppercase font-bold tracking-widest">{product.category}</p>
                           <h3 className="text-sm sm:text-lg font-black uppercase italic tracking-tight">{product.name}</h3>
-                          <p className="text-sm font-mono text-white/50">GHâ‚µ {product.price}</p>
+                          <p className="text-sm font-mono text-white/50">{formatGhanaCedis(product.price)}</p>
                         </div>
                         <ArrowRight className="ml-auto text-white/20 group-hover:text-orange-500 group-hover:translate-x-2 transition-all" size={20} />
                       </Link>

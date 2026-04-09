@@ -21,6 +21,7 @@ import { auth, db } from '../firebase';
 import { useCart } from '../hooks/useCart';
 import { DeliveryZone, Order, StoreSettings } from '../types';
 import { defaultDeliveryZones, defaultStoreSettings, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
+import { formatGhanaCedis } from '../lib/utils';
 
 type PaymentMethod = 'Mobile Money' | 'Bank Transfer' | 'Pay on Delivery';
 
@@ -327,7 +328,7 @@ const Checkout = () => {
                         </div>
                         <div>
                           <p className="text-lg sm:text-2xl font-bold">{zone.name}</p>
-                          <p className="text-xs sm:text-sm text-white/55">Delivery fee: GHS {zone.fee.toFixed(2)}</p>
+                          <p className="text-xs sm:text-sm text-white/55">Delivery fee: {formatGhanaCedis(zone.fee)}</p>
                         </div>
                       </div>
                       <div className={`h-6 w-6 rounded-full border-2 ${selected ? 'border-orange-500 bg-orange-500/20' : 'border-white/35'}`} />
@@ -380,7 +381,7 @@ const Checkout = () => {
               >
                 <InfoLine label="MoMo Number" value={settings.mobileMoneyNumber} />
                 <InfoLine label="Name" value={settings.mobileMoneyName} />
-                <InfoLine label="Amount" value={`GHS ${estimatedTotal.toFixed(2)}`} highlight />
+                <InfoLine label="Amount" value={formatGhanaCedis(estimatedTotal)} highlight />
                 <div className="rounded-[1.15rem] border border-white/10 bg-[rgba(9,9,11,0.34)] px-4 py-4 text-sm text-white/60">
                   Reference: your tracking code will be shown after placing the order.
                 </div>
@@ -422,7 +423,7 @@ const Checkout = () => {
                       <p className="truncate text-sm sm:text-xl font-bold">{item.name} x{item.quantity}</p>
                       {item.selectedSize && <p className="text-[11px] sm:text-sm font-semibold uppercase tracking-widest text-orange-400">Size {item.selectedSize}</p>}
                     </div>
-                    <p className="shrink-0 text-xs sm:text-xl font-bold text-orange-400">GHS {((item.flashSalePrice || item.price) * item.quantity).toFixed(2)}</p>
+                    <p className="shrink-0 text-xs sm:text-xl font-bold text-orange-400">{formatGhanaCedis((item.flashSalePrice || item.price) * item.quantity)}</p>
                   </div>
                 ))}
               </div>
@@ -434,11 +435,11 @@ const Checkout = () => {
               <div className="mt-6 space-y-3 border-t border-white/10 pt-6">
                 <SummaryRow label="Payment" value={formData.paymentMethod} />
                 <SummaryRow label="Delivery Zone" value={selectedZone?.name || 'Not selected'} />
-                <SummaryRow label="Subtotal" value={`GHS ${subtotal.toFixed(2)}`} />
-                <SummaryRow label="Delivery Fee" value={`GHS ${deliveryFee.toFixed(2)}`} />
+                <SummaryRow label="Subtotal" value={formatGhanaCedis(subtotal)} />
+                <SummaryRow label="Delivery Fee" value={formatGhanaCedis(deliveryFee)} />
                 <div className="flex items-center justify-between gap-4 pt-3">
                   <span className="text-xl sm:text-3xl font-black tracking-tight">Estimated Total</span>
-                  <span className="text-2xl sm:text-4xl font-black text-orange-400">GHS {estimatedTotal.toFixed(2)}</span>
+                  <span className="text-2xl sm:text-4xl font-black text-orange-400">{formatGhanaCedis(estimatedTotal)}</span>
                 </div>
               </div>
 

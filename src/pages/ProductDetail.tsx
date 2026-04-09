@@ -31,13 +31,8 @@ import { Product, Review } from '../types';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { findImportedCatalogProduct } from '../lib/importedCatalog';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn, formatGhanaCedis } from '../lib/utils';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -241,19 +236,19 @@ const ProductDetail = () => {
               <div className="flex items-baseline space-x-4">
                 {hasFlashSale ? (
                   <>
-                    <span className="text-3xl sm:text-4xl font-black text-white font-mono">GHâ‚µ {product.flashSalePrice}</span>
-                    <span className="text-lg sm:text-xl text-white/30 line-through font-mono">GHâ‚µ {product.price}</span>
+                    <span className="text-3xl sm:text-4xl font-black text-white font-mono">{formatGhanaCedis(product.flashSalePrice)}</span>
+                    <span className="text-lg sm:text-xl text-white/30 line-through font-mono">{formatGhanaCedis(product.price)}</span>
                   </>
                 ) : (
-                  <span className="text-3xl sm:text-4xl font-black text-white font-mono">GHâ‚µ {product.price}</span>
+                  <span className="text-3xl sm:text-4xl font-black text-white font-mono">{formatGhanaCedis(product.price)}</span>
                 )}
               </div>
               <div className="mt-3 space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-white/35">
-                  Unit Price: GHâ‚µ {currentPrice}
+                  Unit Price: {formatGhanaCedis(currentPrice)}
                 </p>
                 <p className="text-sm font-bold uppercase tracking-widest text-orange-500">
-                  Total For {quantity}: GHâ‚µ {totalPrice}
+                  Total For {quantity}: {formatGhanaCedis(totalPrice)}
                 </p>
               </div>
             </div>
