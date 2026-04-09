@@ -4,6 +4,7 @@ import { Product } from '../types';
 export interface CartItem extends Product {
   quantity: number;
   selectedSize?: string;
+  selectedColor?: string;
   cartKey: string;
 }
 
@@ -17,7 +18,7 @@ const readCartFromStorage = (): CartItem[] => {
     const parsed = JSON.parse(savedCart) as Array<CartItem & { selectedSize?: string; cartKey?: string }>;
     return parsed.map((item) => ({
       ...item,
-      cartKey: item.cartKey || `${item.id}__${item.selectedSize?.trim() || 'no-size'}`,
+      cartKey: item.cartKey || `${item.id}__${item.selectedSize?.trim() || 'no-size'}__${item.selectedColor?.trim() || 'no-color'}`,
     }));
   } catch (e) {
     console.error("Failed to parse cart", e);
@@ -28,8 +29,8 @@ const readCartFromStorage = (): CartItem[] => {
 export const useCart = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  const getCartKey = (productId: string, selectedSize?: string) =>
-    `${productId}__${selectedSize?.trim() || 'no-size'}`;
+  const getCartKey = (productId: string, selectedSize?: string, selectedColor?: string) =>
+    `${productId}__${selectedSize?.trim() || 'no-size'}__${selectedColor?.trim() || 'no-color'}`;
 
   useEffect(() => {
     setCart(readCartFromStorage());
@@ -62,9 +63,9 @@ export const useCart = () => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextCart));
   };
 
-  const addToCart = (product: Product, selectedSize?: string) => {
+  const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
     setCart(prev => {
-      const cartKey = getCartKey(product.id, selectedSize);
+      const cartKey = getCartKey(product.id, selectedSize, selectedColor);
       const existing = prev.find(item => item.cartKey === cartKey);
       const maxAllowedQuantity = getMaxAllowedQuantity(product);
 
@@ -80,7 +81,7 @@ export const useCart = () => {
           item.cartKey === cartKey ? { ...item, quantity: nextQuantity } : item
         );
       } else {
-        nextCart = [...prev, { ...product, quantity: 1, selectedSize, cartKey }];
+        nextCart = [...prev, { ...product, quantity: 1, selectedSize, selectedColor, cartKey }];
       }
 
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextCart));
@@ -89,11 +90,11 @@ export const useCart = () => {
     });
   };
 
-  const addToCartQuantity = (product: Product, quantity: number, selectedSize?: string) => {
+  const addToCartQuantity = (product: Product, quantity: number, selectedSize?: string, selectedColor?: string) => {
     const safeQuantity = Math.max(1, quantity);
 
     setCart(prev => {
-      const cartKey = getCartKey(product.id, selectedSize);
+      const cartKey = getCartKey(product.id, selectedSize, selectedColor);
       const existing = prev.find(item => item.cartKey === cartKey);
       const maxAllowedQuantity = getMaxAllowedQuantity(product);
 
@@ -109,7 +110,7 @@ export const useCart = () => {
           item.cartKey === cartKey ? { ...item, quantity: nextQuantity } : item
         );
       } else {
-        nextCart = [...prev, { ...product, quantity: Math.min(safeQuantity, maxAllowedQuantity), selectedSize, cartKey }];
+        nextCart = [...prev, { ...product, quantity: Math.min(safeQuantity, maxAllowedQuantity), selectedSize, selectedColor, cartKey }];
       }
 
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextCart));

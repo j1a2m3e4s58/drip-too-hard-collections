@@ -12,17 +12,36 @@ function extractGoogleDriveFileId(rawUrl: string) {
   return match?.[1] || null;
 }
 
+function extractGoogleDriveResourceKey(rawUrl: string) {
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const queryMatch = trimmed.match(/[?&]resourcekey=([^&]+)/i);
+  return queryMatch?.[1] || null;
+}
+
+function buildDriveQuery(fileId: string, resourceKey?: string | null) {
+  return resourceKey ? `id=${fileId}&resourcekey=${resourceKey}` : `id=${fileId}`;
+}
+
 export function getGoogleDriveCandidateUrls(rawUrl: string) {
   const trimmed = rawUrl.trim();
   const fileId = extractGoogleDriveFileId(trimmed);
+  const resourceKey = extractGoogleDriveResourceKey(trimmed);
 
   if (!fileId) {
     return trimmed ? [trimmed] : [];
   }
 
+  const queryString = buildDriveQuery(fileId, resourceKey);
+
   return [
-    `https://drive.google.com/uc?export=view&id=${fileId}`,
-    `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`,
+    `https://drive.google.com/thumbnail?${queryString}&sz=w4000`,
+    `https://drive.google.com/uc?export=download&${queryString}`,
+    `https://drive.google.com/uc?export=view&${queryString}`,
+    `https://drive.usercontent.google.com/download?${queryString}&export=view&authuser=0`,
     `https://lh3.googleusercontent.com/d/${fileId}=w2000`,
   ];
 }

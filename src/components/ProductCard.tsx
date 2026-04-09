@@ -10,9 +10,10 @@ import { cn, formatGhanaCedis } from '../lib/utils';
 interface ProductCardProps {
   product: Product;
   onQuickView?: (product: Product) => void;
+  deliveryEta?: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView, deliveryEta }) => {
   const isLowStock = product.stockCount !== undefined && product.stockCount > 0 && product.stockCount < 5;
   const hasFlashSale = product.flashSalePrice && product.flashSalePrice > 0;
   const { wishlist, toggleWishlist } = useWishlist();
@@ -68,6 +69,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
         <button
           onClick={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             toggleWishlist(product.id);
           }}
           className={cn(
@@ -82,13 +84,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
           <div className="pointer-events-auto flex flex-col items-center gap-3">
             {product.inStock && (product.stockCount === undefined || product.stockCount > 0) ? (
-              <button 
-                onClick={(e) => {
-                  e.preventDefault();
-                  addToCart(product);
-                }}
-                className="bg-white text-black px-4 py-2.5 sm:px-6 sm:py-3 text-[10px] sm:text-xs font-bold uppercase tracking-widest flex items-center space-x-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 hover:bg-orange-500"
-              >
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    addToCart(product);
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="bg-white text-black px-4 py-2.5 sm:px-6 sm:py-3 text-[10px] sm:text-xs font-bold uppercase tracking-widest flex items-center space-x-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 hover:bg-orange-500"
+                >
                 <span>Add to Bag</span>
                 <ShoppingBag size={14} />
               </button>
@@ -101,8 +105,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
                 <button
                   onClick={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     onQuickView(product);
                   }}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="border border-white/20 bg-black/70 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white transition-all duration-300 hover:border-orange-500 hover:text-orange-400"
                 >
                   Quick View
@@ -126,7 +132,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
             {hasFlashSale ? (
               <div className="flex flex-col items-end">
                 <span className="text-[10px] text-white/40 line-through font-mono">{formatGhanaCedis(product.price)}</span>
-                <span className="text-sm font-black text-orange-500 font-mono">{formatGhanaCedis(product.flashSalePrice)}</span>
+                        <span className="text-sm font-black text-orange-500 font-mono">{formatGhanaCedis(product.flashSalePrice)}</span>
               </div>
             ) : (
               <p className="text-sm font-mono text-white/70">
@@ -135,10 +141,26 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
             )}
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {deliveryEta && (
+            <span className="border border-white/10 bg-zinc-900 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/55">
+              ETA {deliveryEta}
+            </span>
+          )}
+          {isLowStock && (
+            <span className="border border-orange-500/25 bg-orange-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-orange-300">
+              Low Stock
+            </span>
+          )}
+        </div>
         {onQuickView && (
           <button
             type="button"
-            onClick={() => onQuickView(product)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onQuickView(product);
+            }}
             className="mt-2 inline-flex md:hidden border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/75 transition-colors hover:border-orange-500 hover:text-orange-400"
           >
             Quick View

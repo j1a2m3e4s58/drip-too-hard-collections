@@ -98,6 +98,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
                         </div>
                         <p className="text-[10px] text-white/50 uppercase tracking-widest font-bold mt-1">{item.category}</p>
                         {item.selectedSize && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">Size {item.selectedSize}</p>}
+                        {item.selectedColor && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/60">Color {item.selectedColor}</p>}
                       </div>
                       
                       <div className="flex justify-between items-end">

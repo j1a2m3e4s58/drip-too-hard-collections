@@ -269,6 +269,7 @@ const TrackOrder = () => {
                             <p className="text-base sm:text-lg font-bold">{item.name}</p>
                             <p className="text-sm text-orange-400">Qty {item.quantity}</p>
                             {item.selectedSize && <p className="text-xs font-semibold uppercase tracking-widest text-white/50">Size {item.selectedSize}</p>}
+                            {item.selectedColor && <p className="text-xs font-semibold uppercase tracking-widest text-white/40">Color {item.selectedColor}</p>}
                           </div>
                           <p className="text-sm font-semibold text-white/75">{formatGhanaCedis(item.price * item.quantity)}</p>
                         </div>

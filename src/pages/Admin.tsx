@@ -17,17 +17,20 @@ import {
   Bell,
   LayoutPanelTop,
   MapPinned,
+  Mail,
   MessageSquare,
   Package,
   Pencil,
   Plus,
   Reply,
   Save,
+  Search,
   Settings2,
   ShoppingBag,
   Trash2,
   UserRoundCog,
   ArrowLeft,
+  CheckCheck,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { db } from '../firebase';
@@ -57,6 +60,7 @@ const emptyProduct = {
   galleryImages: [''],
   description: '',
   sizeOptions: [] as string[],
+  colorOptions: [] as string[],
   isNew: false,
   isBestseller: false,
   featured: false,
@@ -252,6 +256,8 @@ const Admin = () => {
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [messageSearch, setMessageSearch] = useState('');
+  const [messageStatusFilter, setMessageStatusFilter] = useState<'all' | 'new' | 'read' | 'replied'>('all');
 
   const sizePresets = {
     tops: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
@@ -315,10 +321,49 @@ const Admin = () => {
     [collectionsData, contactMessages, deliveryZones, heroBanners, orders, products],
   );
 
+  const messageNotificationCount = useMemo(
+    () => contactMessages.filter((item) => (item.status || 'new') !== 'replied').length,
+    [contactMessages],
+  );
+
   const receivedOrderCount = useMemo(
     () => orders.filter((item) => item.status === 'Pending' || item.status === 'Processing').length,
     [orders],
   );
+
+  const topSellingProduct = useMemo(() => {
+    const quantityByProduct = new Map<string, { name: string; qty: number }>();
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        const current = quantityByProduct.get(item.productId) || { name: item.name, qty: 0 };
+        quantityByProduct.set(item.productId, { name: item.name, qty: current.qty + item.quantity });
+      });
+    });
+    return [...quantityByProduct.values()].sort((a, b) => b.qty - a.qty)[0] || null;
+  }, [orders]);
+
+  const mostViewedProduct = useMemo(
+    () => [...products].filter((item) => (item.viewCount || 0) > 0).sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))[0] || null,
+    [products],
+  );
+
+  const todaysOrders = useMemo(() => {
+    const today = new Date();
+    return orders.filter((item) => {
+      const createdAt = item.createdAt?.toDate ? item.createdAt.toDate() : null;
+      return createdAt && createdAt.toDateString() === today.toDateString();
+    }).length;
+  }, [orders]);
+
+  const filteredMessages = useMemo(() => {
+    const queryText = messageSearch.trim().toLowerCase();
+    return contactMessages.filter((item) => {
+      const matchesStatus = messageStatusFilter === 'all' || (item.status || 'new') === messageStatusFilter;
+      const haystack = [item.name, item.email, item.phone || '', item.subject, item.message].join(' ').toLowerCase();
+      const matchesSearch = !queryText || haystack.includes(queryText);
+      return matchesStatus && matchesSearch;
+    });
+  }, [contactMessages, messageSearch, messageStatusFilter]);
 
   const sections = [
     { id: 'products' as const, title: 'Product Management', description: 'Edit products, stock, featured states, prices, and images.', icon: Package },
@@ -356,7 +401,7 @@ const Admin = () => {
     }
     setEditingId(item.id);
     const { id, ...rest } = item;
-    if (kind === 'products') setProductForm({ ...emptyProduct, ...rest, galleryImages: Array.isArray(rest.galleryImages) && rest.galleryImages.length ? rest.galleryImages : [''] });
+    if (kind === 'products') setProductForm({ ...emptyProduct, ...rest, galleryImages: Array.isArray(rest.galleryImages) && rest.galleryImages.length ? rest.galleryImages : [''], colorOptions: Array.isArray(rest.colorOptions) ? rest.colorOptions : [] });
     if (kind === 'hero')
       setHeroForm({
         ...emptyHero,
@@ -381,6 +426,7 @@ const Admin = () => {
           ...productForm,
           galleryImages: (productForm.galleryImages || []).map((item) => item.trim()).filter(Boolean),
           sizeOptions: (productForm.sizeOptions || []).map((item) => item.trim()).filter(Boolean),
+          colorOptions: (productForm.colorOptions || []).map((item) => item.trim()).filter(Boolean),
           updatedAt: serverTimestamp(),
         };
         editingId
@@ -472,9 +518,14 @@ const Admin = () => {
 
     setBusyAction(`message-${messageId}`);
     try {
+      const targetMessage = contactMessages.find((item) => item.id === messageId);
       await updateDoc(doc(db, 'contacts', messageId), {
         adminReply: reply,
         status: 'replied',
+        replyHistory: [
+          ...((targetMessage?.replyHistory || []).filter(Boolean)),
+          { sender: 'admin', body: reply, createdAt: new Date().toISOString() },
+        ],
         repliedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -486,6 +537,42 @@ const Admin = () => {
     } finally {
       setBusyAction(null);
     }
+  };
+
+  const markMessageRead = async (messageId: string) => {
+    setBusyAction(`message-read-${messageId}`);
+    try {
+      await updateDoc(doc(db, 'contacts', messageId), {
+        status: 'read',
+        updatedAt: serverTimestamp(),
+      });
+      showNotice('success', 'Message marked as read.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showNotice('error', `Could not mark message as read. ${message}`);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const getMessageWhatsappHref = (message: ContactMessage) => {
+    const cleanNumber = (message.phone || '').replace(/\D/g, '');
+    if (!cleanNumber) return '#';
+    const replyText = replyDrafts[message.id] ?? message.adminReply ?? '';
+    const body = [
+      `Hello ${message.name},`,
+      '',
+      replyText || `Thanks for contacting DTHC. We received your message: "${message.subject}".`,
+      '',
+      `Reference: ${message.subject}`,
+      `Email: ${message.email}`,
+    ].join('\n');
+    return `https://wa.me/${cleanNumber}?text=${encodeURIComponent(body)}`;
+  };
+
+  const getMessageEmailHref = (message: ContactMessage) => {
+    const replyText = replyDrafts[message.id] ?? message.adminReply ?? '';
+    return `mailto:${encodeURIComponent(message.email)}?subject=${encodeURIComponent(`RE: ${message.subject}`)}&body=${encodeURIComponent(replyText || `Hello ${message.name},\n\n`)}`;
   };
 
   const handleDeleteDoc = async (collectionName: string, itemId: string, label: string) => {
@@ -605,6 +692,11 @@ const Admin = () => {
                 value={(productForm.sizeOptions || []).join(', ')}
                 onChange={(v) => setProductForm({ ...productForm, sizeOptions: v.split(',').map((item) => item.trim()).filter(Boolean) })}
               />
+              <Input
+                label="Available colors"
+                value={(productForm.colorOptions || []).join(', ')}
+                onChange={(v) => setProductForm({ ...productForm, colorOptions: v.split(',').map((item) => item.trim()).filter(Boolean) })}
+              />
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Quick size sets</p>
                 <div className="flex flex-wrap gap-2">
@@ -612,6 +704,7 @@ const Admin = () => {
                   <button type="button" onClick={() => setProductForm({ ...productForm, sizeOptions: sizePresets.trousers })} className="rounded-full border border-white/10 bg-[rgba(9,9,11,0.58)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/80">Trouser sizes</button>
                   <button type="button" onClick={() => setProductForm({ ...productForm, sizeOptions: sizePresets.shoes })} className="rounded-full border border-white/10 bg-[rgba(9,9,11,0.58)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/80">Shoe sizes</button>
                   <button type="button" onClick={() => setProductForm({ ...productForm, sizeOptions: [] })} className="rounded-full border border-white/10 bg-[rgba(9,9,11,0.58)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/60">Clear sizes</button>
+                  <button type="button" onClick={() => setProductForm({ ...productForm, colorOptions: ['Black', 'White', 'Blue', 'Green', 'Red'] })} className="rounded-full border border-white/10 bg-[rgba(9,9,11,0.58)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/80">Core colors</button>
                 </div>
               </div>
               <ImageSourceField label="Product image" value={productForm.image} sourceType={productForm.imageSourceType} originalUrl={productForm.imageOriginalUrl} storageFolder="products" helperText="Use URL, upload from device, or a Google Drive share link." onChange={(payload) => setProductForm({ ...productForm, ...payload })} />
@@ -838,6 +931,23 @@ const Admin = () => {
             <StatCard label="Pending orders" value={overview.pending} icon={ShoppingBag} />
             <StatCard label="Open messages" value={overview.messages} icon={MessageSquare} />
           </div>
+          <div className="mb-8 grid gap-3 md:gap-4 xl:grid-cols-3">
+            <InsightCard
+              title="Top selling product"
+              value={topSellingProduct ? `${topSellingProduct.name} (${topSellingProduct.qty})` : 'No sales yet'}
+              subtitle="Most ordered item"
+            />
+            <InsightCard
+              title="Most viewed product"
+              value={mostViewedProduct ? `${mostViewedProduct.name} (${mostViewedProduct.viewCount || 0})` : 'No views yet'}
+              subtitle="Tracked from product page visits"
+            />
+            <InsightCard
+              title="Today’s orders"
+              value={String(todaysOrders)}
+              subtitle="Orders placed today"
+            />
+          </div>
 
           <div className="grid gap-4 md:gap-6 md:grid-cols-2">
             {sections.map((item) => (
@@ -900,6 +1010,19 @@ const Admin = () => {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/messages')}
+              className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-[rgba(24,24,27,0.62)] text-white transition-all backdrop-blur-md hover:border-orange-500/40 hover:text-orange-400"
+              aria-label="Open customer messages"
+            >
+              <MessageSquare size={20} />
+              {messageNotificationCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-orange-500 px-1.5 py-0.5 text-center text-[10px] font-black text-black">
+                  {messageNotificationCount}
+                </span>
+              )}
+            </button>
             {section !== 'settings' && section !== 'orders' && (
               <button type="button" onClick={() => (showForm ? resetEditor() : openEditor(section))} className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-black shadow-[0_8px_24px_rgba(249,115,22,0.18)]">
                 <Plus size={16} />
@@ -925,7 +1048,7 @@ const Admin = () => {
           {section === 'products' && (
             <div className="grid gap-6 lg:grid-cols-2">
               {products.map((item) => (
-                  <MediaCard key={item.id} image={item.image} title={item.name} subtitle={item.description} badges={[item.category, formatGhanaCedis(item.price), `Stock ${item.stockCount ?? 0}`, item.galleryImages?.length ? `${item.galleryImages.length + 1} images` : '', item.sizeOptions?.length ? `${item.sizeOptions.length} sizes` : '', item.featured ? 'Featured' : '', item.inStock ? 'Available' : 'Out']} onEdit={() => openEditor('products', item)} onDelete={() => handleDeleteDoc('products', item.id, 'product')} />
+                  <MediaCard key={item.id} image={item.image} title={item.name} subtitle={item.description} badges={[item.category, formatGhanaCedis(item.price), `Stock ${item.stockCount ?? 0}`, item.stockCount !== undefined && item.stockCount > 0 && item.stockCount < 5 ? 'Low stock' : '', item.galleryImages?.length ? `${item.galleryImages.length + 1} images` : '', item.sizeOptions?.length ? `${item.sizeOptions.length} sizes` : '', item.colorOptions?.length ? `${item.colorOptions.length} colors` : '', item.featured ? 'Featured' : '', item.inStock ? 'Available' : 'Out']} onEdit={() => openEditor('products', item)} onDelete={() => handleDeleteDoc('products', item.id, 'product')} />
               ))}
             </div>
           )}
@@ -1100,6 +1223,7 @@ const Admin = () => {
                               <p className="text-orange-400">Unit Price: {formatGhanaCedis(item.price)}</p>
                             <p className="text-white/45">Qty {item.quantity}</p>
                             {item.selectedSize && <p className="text-xs font-semibold uppercase tracking-widest text-white/55">Size {item.selectedSize}</p>}
+                            {item.selectedColor && <p className="text-xs font-semibold uppercase tracking-widest text-white/55">Color {item.selectedColor}</p>}
                           </div>
                         </div>
                       ))}
@@ -1146,13 +1270,35 @@ const Admin = () => {
           )}
           {section === 'messages' && (
             <div className="space-y-6">
-              {contactMessages.length ? (
-                contactMessages.map((message) => (
+              <div className="grid gap-4 rounded-[1.5rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-4 backdrop-blur-xl md:grid-cols-[1fr_220px]">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/35" size={16} />
+                  <input
+                    value={messageSearch}
+                    onChange={(event) => setMessageSearch(event.target.value)}
+                    placeholder="Search by name, email, phone, subject..."
+                    className="w-full border border-white/10 bg-[rgba(9,9,11,0.7)] py-3 pl-11 pr-4 text-sm text-white outline-none transition-colors focus:border-orange-500"
+                  />
+                </div>
+                <select
+                  value={messageStatusFilter}
+                  onChange={(event) => setMessageStatusFilter(event.target.value as 'all' | 'new' | 'read' | 'replied')}
+                  className="border border-white/10 bg-[rgba(9,9,11,0.7)] px-4 py-3 text-sm font-semibold text-white outline-none transition-colors focus:border-orange-500"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="new">New</option>
+                  <option value="read">Read</option>
+                  <option value="replied">Replied</option>
+                </select>
+              </div>
+              {filteredMessages.length ? (
+                filteredMessages.map((message) => (
                   <div key={message.id} className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-5 backdrop-blur-xl">
                     <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <h3 className="text-2xl font-bold">{message.name}</h3>
                         <p className="mt-1 text-sm text-white/55">{message.email}</p>
+                        {message.phone && <p className="mt-1 text-sm text-white/45">{message.phone}</p>}
                         <p className="mt-1 text-sm text-white/45">
                           {message.createdAt?.toDate ? message.createdAt.toDate().toLocaleString() : 'Pending sync'}
                         </p>
@@ -1166,6 +1312,19 @@ const Admin = () => {
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">Customer Message</p>
                         <h4 className="mt-3 text-lg font-bold">{message.subject}</h4>
                         <p className="mt-4 text-sm leading-7 text-white/75">{message.message}</p>
+                        {!!message.replyHistory?.length && (
+                          <div className="mt-5 border-t border-white/10 pt-5">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">History</p>
+                            <div className="mt-4 space-y-3">
+                              {message.replyHistory.map((entry, index) => (
+                                <div key={`${message.id}-history-${index}`} className="border border-white/10 bg-[rgba(24,24,27,0.7)] px-4 py-3 text-sm text-white/75">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">{entry.sender === 'admin' ? 'Admin' : message.name}</p>
+                                  <p className="mt-2 leading-7">{entry.body}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="rounded-[1.5rem] border border-white/10 bg-[rgba(9,9,11,0.6)] p-5 backdrop-blur-md">
                         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">Admin Reply</p>
@@ -1182,6 +1341,31 @@ const Admin = () => {
                           />
                         </div>
                         <div className="mt-4 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => markMessageRead(message.id)}
+                            disabled={busyAction === `message-read-${message.id}`}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-[rgba(39,39,42,0.72)] px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                          >
+                            <CheckCheck size={14} />
+                            {busyAction === `message-read-${message.id}` ? 'Saving...' : 'Mark Read'}
+                          </button>
+                          <a
+                            href={getMessageWhatsappHref(message)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-bold ${message.phone ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'pointer-events-none border-white/10 bg-[rgba(39,39,42,0.4)] text-white/35'}`}
+                          >
+                            <MessageSquare size={14} />
+                            WhatsApp Reply
+                          </a>
+                          <a
+                            href={getMessageEmailHref(message)}
+                            className="inline-flex items-center gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-5 py-3 text-sm font-bold text-sky-300"
+                          >
+                            <Mail size={14} />
+                            Email Reply
+                          </a>
                           <button
                             type="button"
                             onClick={() => saveContactReply(message.id)}
@@ -1206,9 +1390,9 @@ const Admin = () => {
                 ))
               ) : (
                 <div className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-8 text-center backdrop-blur-xl">
-                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">Inbox Is Clear</p>
-                  <h3 className="mt-3 text-3xl font-black tracking-tight">No customer messages yet</h3>
-                  <p className="mt-3 text-white/55">When someone sends a message from Contact Us, it will appear here immediately.</p>
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">{contactMessages.length ? 'No Matches' : 'Inbox Is Clear'}</p>
+                  <h3 className="mt-3 text-3xl font-black tracking-tight">{contactMessages.length ? 'No messages match this filter' : 'No customer messages yet'}</h3>
+                  <p className="mt-3 text-white/55">{contactMessages.length ? 'Try another name, email, phone, or status filter.' : 'When someone sends a message from Contact Us, it will appear here immediately.'}</p>
                 </div>
               )}
             </div>
@@ -1224,6 +1408,14 @@ const StatCard = ({ label, value, icon: Icon }: { label: string; value: number; 
     <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-400 backdrop-blur-sm"><Icon size={18} /></div>
     <p className="text-4xl font-black">{value}</p>
     <p className="text-sm text-white/45">{label}</p>
+  </div>
+);
+
+const InsightCard = ({ title, value, subtitle }: { title: string; value: string; subtitle: string }) => (
+  <div className="rounded-[1.5rem] border border-white/10 bg-[rgba(24,24,27,0.62)] p-4 backdrop-blur-xl">
+    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">{title}</p>
+    <p className="mt-3 text-2xl font-black tracking-tight text-white">{value}</p>
+    <p className="mt-2 text-sm text-white/45">{subtitle}</p>
   </div>
 );
 

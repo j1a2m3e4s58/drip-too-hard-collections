@@ -145,10 +145,15 @@ export function normalizeGoogleDriveUrl(rawUrl: string) {
     trimmed.match(/\/file\/d\/([^/]+)/) ||
     trimmed.match(/[?&]id=([^&]+)/) ||
     trimmed.match(/\/d\/([^/]+)/);
+  const resourceKeyMatch = trimmed.match(/[?&]resourcekey=([^&]+)/i);
 
   if (!fileMatch?.[1]) {
     return trimmed;
   }
 
-  return `https://drive.google.com/uc?export=view&id=${fileMatch[1]}`;
+  const query = resourceKeyMatch?.[1]
+    ? `id=${fileMatch[1]}&resourcekey=${resourceKeyMatch[1]}`
+    : `id=${fileMatch[1]}`;
+
+  return `https://drive.google.com/thumbnail?${query}&sz=w4000`;
 }

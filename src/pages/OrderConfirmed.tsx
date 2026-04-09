@@ -52,7 +52,9 @@ const OrderConfirmed = () => {
     }
 
     const cleanNumber = settings.supportWhatsapp.replace(/\D/g, '');
-    const itemsSummary = order.items.map((item) => `${item.name}${item.selectedSize ? ` (${item.selectedSize})` : ''} x${item.quantity}`).join(', ');
+    const itemsSummary = order.items
+      .map((item) => `${item.name}${item.selectedSize ? ` (${item.selectedSize})` : ''}${item.selectedColor ? ` [${item.selectedColor}]` : ''} x${item.quantity}`)
+      .join(', ');
     const customerName = order.shippingAddress.name;
     const zone = order.deliveryZone || order.shippingAddress.city;
     const message =

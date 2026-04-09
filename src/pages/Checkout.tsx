@@ -171,6 +171,7 @@ const Checkout = () => {
         quantity: item.quantity,
         image: item.image,
         ...(item.selectedSize ? { selectedSize: item.selectedSize } : {}),
+        ...(item.selectedColor ? { selectedColor: item.selectedColor } : {}),
       }));
 
       const orderData: Omit<Order, 'id'> & {
@@ -421,8 +422,9 @@ const Checkout = () => {
                     <img src={item.image} alt={item.name} className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm sm:text-xl font-bold">{item.name} x{item.quantity}</p>
-                      {item.selectedSize && <p className="text-[11px] sm:text-sm font-semibold uppercase tracking-widest text-orange-400">Size {item.selectedSize}</p>}
-                    </div>
+                    {item.selectedSize && <p className="text-[11px] sm:text-sm font-semibold uppercase tracking-widest text-orange-400">Size {item.selectedSize}</p>}
+                    {item.selectedColor && <p className="text-[11px] sm:text-sm font-semibold uppercase tracking-widest text-white/55">Color {item.selectedColor}</p>}
+                  </div>
                     <p className="shrink-0 text-xs sm:text-xl font-bold text-orange-400">{formatGhanaCedis((item.flashSalePrice || item.price) * item.quantity)}</p>
                   </div>
                 ))}

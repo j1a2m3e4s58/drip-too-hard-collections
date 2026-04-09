@@ -14,9 +14,11 @@
   flashSalePrice?: number;
   flashSaleEnd?: any;
   sizeOptions?: string[];
+  colorOptions?: string[];
   imageSourceType?: 'url' | 'upload' | 'drive';
   imageOriginalUrl?: string;
   imageStoragePath?: string;
+  viewCount?: number;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -31,6 +33,7 @@ export interface Order {
     quantity: number;
     image: string;
     selectedSize?: string;
+    selectedColor?: string;
   }[];
   total: number;
   status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
@@ -152,10 +155,16 @@ export interface ContactMessage {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   subject: string;
   message: string;
   status?: 'new' | 'read' | 'replied';
   adminReply?: string;
+  replyHistory?: {
+    sender: 'customer' | 'admin';
+    body: string;
+    createdAt?: any;
+  }[];
   createdAt?: any;
   repliedAt?: any;
   updatedAt?: any;

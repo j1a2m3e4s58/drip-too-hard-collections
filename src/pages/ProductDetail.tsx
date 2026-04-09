@@ -29,7 +29,9 @@ import {
   onSnapshot, 
   addDoc, 
   serverTimestamp,
-  orderBy
+  orderBy,
+  increment,
+  setDoc
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { Product, Review } from '../types';
@@ -48,6 +50,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
   const [activeImage, setActiveImage] = useState('');
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryZoomed, setGalleryZoomed] = useState(false);
@@ -68,10 +71,16 @@ const ProductDetail = () => {
     const fetchProduct = async () => {
       const docRef = doc(db, 'products', id);
       const docSnap = await getDoc(docRef);
+      const importedFallback = findImportedCatalogProduct(id);
+
       if (docSnap.exists()) {
-        setProduct({ id: docSnap.id, ...docSnap.data() } as Product);
+        setProduct({
+          ...(importedFallback || {}),
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Product, 'id'>),
+        } as Product);
       } else {
-        setProduct(findImportedCatalogProduct(id));
+        setProduct(importedFallback);
       }
       setLoading(false);
     };
@@ -109,6 +118,7 @@ const ProductDetail = () => {
   useEffect(() => {
     if (!product) return;
     setSelectedSize(product.sizeOptions?.[0] || '');
+    setSelectedColor(product.colorOptions?.[0] || '');
   }, [product]);
 
   useEffect(() => {
@@ -120,6 +130,41 @@ const ProductDetail = () => {
   useEffect(() => {
     if (!product?.id) return;
     pushRecentlyViewedId(product.id);
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    const importedFallback = findImportedCatalogProduct(product.id);
+    const importedBase = importedFallback
+      ? {
+          name: importedFallback.name,
+          price: importedFallback.price,
+          category: importedFallback.category,
+          image: importedFallback.image,
+          galleryImages: importedFallback.galleryImages || [],
+          description: importedFallback.description,
+          inStock: importedFallback.inStock,
+          stockCount: importedFallback.stockCount,
+          sizeOptions: importedFallback.sizeOptions || [],
+          colorOptions: importedFallback.colorOptions || [],
+          featured: importedFallback.featured,
+          isNew: importedFallback.isNew,
+          isBestseller: importedFallback.isBestseller,
+          flashSalePrice: importedFallback.flashSalePrice || 0,
+          imageSourceType: importedFallback.imageSourceType,
+          imageOriginalUrl: importedFallback.imageOriginalUrl,
+        }
+      : {};
+
+    void setDoc(
+      doc(db, 'products', product.id),
+      {
+        ...importedBase,
+        viewCount: increment(1),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
   }, [product?.id]);
 
   const handleAddReview = async (e: React.FormEvent) => {
@@ -355,6 +400,28 @@ const ProductDetail = () => {
                   </div>
                 </div>
               )}
+              {!!product.colorOptions?.length && (
+                <div>
+                  <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/45">Select Color</p>
+                  <div className="flex flex-wrap gap-3">
+                    {product.colorOptions.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setSelectedColor(color)}
+                        className={cn(
+                          'min-w-[72px] border px-4 py-3 text-xs font-black uppercase tracking-widest transition-all',
+                          selectedColor === color
+                            ? 'border-orange-500 bg-orange-500 text-black'
+                            : 'border-white/10 bg-zinc-900 text-white hover:border-orange-500 hover:text-orange-400'
+                        )}
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {!isOutOfStock && (
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
                   <div className="flex items-center border border-white/10 bg-zinc-900">
@@ -374,7 +441,7 @@ const ProductDetail = () => {
                   </div>
                     <button 
                       onClick={() => {
-                      addToCartQuantity(product, quantity, selectedSize || undefined);
+                      addToCartQuantity(product, quantity, selectedSize || undefined, selectedColor || undefined);
                       window.dispatchEvent(new Event('open-cart'));
                     }}
                     className="flex-1 bg-white text-black py-4 text-sm font-black uppercase tracking-widest hover:bg-orange-500 transition-all flex items-center justify-center space-x-3 group"

@@ -7,7 +7,7 @@ import ProductCard from '../components/ProductCard';
 import ProductQuickViewModal from '../components/ProductQuickViewModal';
 import { ProductCardSkeleton } from '../components/Skeleton';
 import { db } from '../firebase';
-import { Product } from '../types';
+import { DeliveryZone, Product } from '../types';
 import { mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
 
 const Shop = () => {
@@ -18,6 +18,7 @@ const Shop = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('Newest');
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
 
   useEffect(() => {
     const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -28,6 +29,18 @@ const Shop = () => {
       })) as Product[];
       setProducts(mergeWithImportedCatalogProducts(prods));
       setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(query(collection(db, 'deliveryZones'), orderBy('sortOrder', 'asc')), (snapshot) => {
+      setDeliveryZones(
+        snapshot.docs
+          .map((item) => ({ id: item.id, ...item.data() }) as DeliveryZone)
+          .filter((item) => item.active),
+      );
     });
 
     return () => unsubscribe();
@@ -113,6 +126,8 @@ const Shop = () => {
 
     return [...productMatches, ...categoryMatches].slice(0, 6);
   }, [categories, products, searchQuery]);
+
+  const deliveryEta = useMemo(() => deliveryZones.find((item) => item.eta)?.eta || '', [deliveryZones]);
 
   if (loading) {
     return (
@@ -210,7 +225,7 @@ const Shop = () => {
         {sortedProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12 lg:grid-cols-4">
             {sortedProducts.map((product) => (
-              <ProductCard key={product.id} product={product} onQuickView={setQuickViewProduct} />
+              <ProductCard key={product.id} product={product} onQuickView={setQuickViewProduct} deliveryEta={deliveryEta} />
             ))}
           </div>
         ) : (

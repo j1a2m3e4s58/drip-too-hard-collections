@@ -1,20 +1,51 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Send, MessageSquare, Clock } from 'lucide-react';
-import { collection, addDoc, doc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { ContactMessage, StoreSettings } from '../types';
 import { defaultStoreSettings, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 
 const CONTACT_STORAGE_KEY = 'dthc-contact-message-id';
+const CONTACT_HISTORY_STORAGE_KEY = 'dthc-contact-message-ids';
 
 const Contact = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [submitNotice, setSubmitNotice] = React.useState('');
   const [settings, setSettings] = React.useState<StoreSettings>({ id: 'settings', ...defaultStoreSettings });
-  const [activeMessageId, setActiveMessageId] = React.useState(() => localStorage.getItem(CONTACT_STORAGE_KEY) || '');
-  const [activeMessage, setActiveMessage] = React.useState<ContactMessage | null>(null);
+  const [messageIds, setMessageIds] = React.useState<string[]>(() => {
+    const historyValue = localStorage.getItem(CONTACT_HISTORY_STORAGE_KEY);
+    if (historyValue) {
+      try {
+        const parsed = JSON.parse(historyValue);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((item): item is string => typeof item === 'string');
+        }
+      } catch {
+        // Ignore invalid local history and fall back to the legacy single-id key.
+      }
+    }
+
+    const legacyId = localStorage.getItem(CONTACT_STORAGE_KEY);
+    return legacyId ? [legacyId] : [];
+  });
+  const [activeMessageId, setActiveMessageId] = React.useState(() => {
+    const historyValue = localStorage.getItem(CONTACT_HISTORY_STORAGE_KEY);
+    if (historyValue) {
+      try {
+        const parsed = JSON.parse(historyValue);
+        if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
+          return parsed[0];
+        }
+      } catch {
+        // Ignore invalid local history and fall back to the legacy single-id key.
+      }
+    }
+
+    return localStorage.getItem(CONTACT_STORAGE_KEY) || '';
+  });
+  const [messages, setMessages] = React.useState<ContactMessage[]>([]);
 
   React.useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, STOREFRONT_SETTINGS_DOC), (snap) => {
@@ -27,19 +58,30 @@ const Contact = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!activeMessageId) {
-      setActiveMessage(null);
+    if (!messageIds.length) {
+      setMessages([]);
       return;
     }
 
-    const unsubscribe = onSnapshot(doc(db, 'contacts', activeMessageId), (snap) => {
-      if (snap.exists()) {
-        setActiveMessage({ id: snap.id, ...(snap.data() as Omit<ContactMessage, 'id'>) });
+    const unsubscribe = onSnapshot(query(collection(db, 'contacts'), orderBy('updatedAt', 'desc')), (snap) => {
+      const nextMessages = snap.docs
+        .map((item) => ({ id: item.id, ...(item.data() as Omit<ContactMessage, 'id'>) }))
+        .filter((item) => messageIds.includes(item.id));
+
+      setMessages(nextMessages);
+
+      if (!nextMessages.some((item) => item.id === activeMessageId)) {
+        setActiveMessageId(nextMessages[0]?.id || '');
       }
     });
 
     return () => unsubscribe();
-  }, [activeMessageId]);
+  }, [activeMessageId, messageIds]);
+
+  const activeMessage = React.useMemo(
+    () => messages.find((item) => item.id === activeMessageId) || messages[0] || null,
+    [activeMessageId, messages],
+  );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -52,14 +94,26 @@ const Contact = () => {
       const created = await addDoc(collection(db, 'contacts'), {
         name: formData.get('name'),
         email: formData.get('email'),
+        phone: formData.get('phone'),
         subject: formData.get('subject'),
         message: formData.get('message'),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         status: 'new',
         adminReply: '',
+        replyHistory: [
+          {
+            sender: 'customer',
+            body: String(formData.get('message') || ''),
+            createdAt: new Date().toISOString(),
+          },
+        ],
       });
+
+      const nextIds = [created.id, ...messageIds.filter((item) => item !== created.id)].slice(0, 20);
       localStorage.setItem(CONTACT_STORAGE_KEY, created.id);
+      localStorage.setItem(CONTACT_HISTORY_STORAGE_KEY, JSON.stringify(nextIds));
+      setMessageIds(nextIds);
       setActiveMessageId(created.id);
       form.reset();
       setIsSuccess(true);
@@ -116,6 +170,9 @@ const Contact = () => {
                   <input required name="email" type="email" className="w-full border border-white/10 bg-black px-4 py-3 text-sm outline-none transition-colors focus:border-orange-500" />
                 </Field>
               </div>
+              <Field label="Phone Number">
+                <input name="phone" type="tel" className="w-full border border-white/10 bg-black px-4 py-3 text-sm outline-none transition-colors focus:border-orange-500" />
+              </Field>
               <Field label="Subject">
                 <input required name="subject" type="text" className="w-full border border-white/10 bg-black px-4 py-3 text-sm outline-none transition-colors focus:border-orange-500" />
               </Field>
@@ -164,7 +221,7 @@ const Contact = () => {
           </div>
         </div>
 
-        {activeMessage && (
+        {messages.length > 0 && (
           <div className="mt-10 border border-white/10 bg-zinc-900 p-5 sm:p-8">
             <div className="mb-5 flex items-center gap-3">
               <MessageSquare className="text-orange-500" size={22} />
@@ -173,11 +230,30 @@ const Contact = () => {
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/40">Saved on this device for easy follow-up</p>
               </div>
             </div>
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="mb-5 flex flex-wrap gap-3">
+              {messages.map((message) => (
+                <button
+                  key={message.id}
+                  type="button"
+                  onClick={() => setActiveMessageId(message.id)}
+                  className={`border px-4 py-3 text-left transition-colors ${
+                    activeMessage?.id === message.id
+                      ? 'border-orange-500 bg-orange-500/10 text-white'
+                      : 'border-white/10 bg-black text-white/75 hover:border-orange-500/40'
+                  }`}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">{message.status || 'new'}</p>
+                  <p className="mt-1 text-sm font-bold">{message.subject}</p>
+                </button>
+              ))}
+            </div>
+            {activeMessage && (
+              <div className="grid gap-5 lg:grid-cols-2">
               <div className="border border-white/10 bg-black p-5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-500">Your Message</p>
                 <h3 className="mt-3 text-lg font-bold">{activeMessage.subject}</h3>
                 <p className="mt-2 text-sm text-white/55">{activeMessage.email}</p>
+                {activeMessage.phone && <p className="mt-1 text-sm text-white/45">{activeMessage.phone}</p>}
                 <p className="mt-4 text-sm leading-7 text-white/78">{activeMessage.message}</p>
                 <div className="mt-5 inline-flex border border-white/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/55">
                   Status: {activeMessage.status || 'new'}
@@ -197,8 +273,24 @@ const Contact = () => {
                     No reply yet. When admin responds, the message will appear here automatically.
                   </div>
                 )}
+                {!!activeMessage.replyHistory?.length && (
+                  <div className="mt-5 border-t border-white/10 pt-5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">Conversation History</p>
+                    <div className="mt-4 space-y-3">
+                      {activeMessage.replyHistory.map((entry, index) => (
+                        <div key={`${activeMessage.id}-reply-${index}`} className="border border-white/10 bg-zinc-950 px-4 py-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">
+                            {entry.sender === 'admin' ? 'Admin' : 'You'}
+                          </p>
+                          <p className="mt-2 text-sm leading-7 text-white/72">{entry.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>

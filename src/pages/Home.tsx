@@ -115,6 +115,7 @@ const Home = () => {
   const heroSlides = useMemo(() => heroBanners.filter((item) => item.image || item.title || item.subtitle), [heroBanners]);
   const hero = useMemo(() => heroSlides[activeHeroIndex] || null, [activeHeroIndex, heroSlides]);
   const featuredCollection = useMemo(() => collectionsData.find((item) => item.featured) || collectionsData[0] || null, [collectionsData]);
+  const storefrontDeliveryEta = useMemo(() => deliveryZones.find((item) => item.eta)?.eta || '', [deliveryZones]);
   const heroImageAnimation = hero ? heroAnimationMap[hero.animationStyle || 'zoom'] || heroAnimationMap.zoom : heroAnimationMap.zoom;
   const bubblePositions = [
     'left-[5%] top-[16%] md:left-[56%] md:top-[14%]',
@@ -330,7 +331,7 @@ const Home = () => {
               <div><div className="mb-2 flex items-center gap-2 text-orange-500"><Zap size={20} fill="currentColor" /><span className="text-xs font-black uppercase tracking-widest">Flash Sale</span></div><h2 className="text-5xl font-black uppercase italic tracking-tighter">Limited Time Drops</h2></div>
               <div className="flex items-center gap-4 border border-white/10 bg-black p-4"><Clock size={20} className="text-orange-500" /><div className="flex gap-4 text-2xl font-black">{[timeLeft.hours, timeLeft.minutes, timeLeft.seconds].map((item, index) => <span key={index}>{item.toString().padStart(2, '0')}</span>)}</div></div>
             </div>
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">{flashSaleProducts.map((item) => <ProductCard key={item.id} product={item} />)}</div>
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">{flashSaleProducts.map((item) => <ProductCard key={item.id} product={item} deliveryEta={storefrontDeliveryEta} />)}</div>
           </div>
         </section>
       )}
@@ -341,7 +342,7 @@ const Home = () => {
             <div><h2 className="text-4xl font-black uppercase italic tracking-tighter">Featured Drops</h2><p className="mt-2 text-white/50">The admin panel controls which products surface here.</p></div>
             <Link to="/shop" className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-orange-500 hover:text-white"><span>View All</span><ArrowRight size={16} /></Link>
           </div>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">{featuredProducts.map((item) => <ProductCard key={item.id} product={item} />)}</div>
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">{featuredProducts.map((item) => <ProductCard key={item.id} product={item} deliveryEta={storefrontDeliveryEta} />)}</div>
         </div>
       </section>
 
