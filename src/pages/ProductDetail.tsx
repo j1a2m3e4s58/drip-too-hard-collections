@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ShoppingBag, 
@@ -33,10 +33,7 @@ import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-<<<<<<< HEAD
 import { findImportedCatalogProduct } from '../lib/importedCatalog';
-=======
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -48,11 +45,8 @@ const ProductDetail = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-<<<<<<< HEAD
   const [selectedSize, setSelectedSize] = useState('');
   const [activeImage, setActiveImage] = useState('');
-=======
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
   const [user] = useAuthState(auth);
   const { wishlist, toggleWishlist } = useWishlist();
   const { addToCartQuantity } = useCart();
@@ -72,11 +66,8 @@ const ProductDetail = () => {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         setProduct({ id: docSnap.id, ...docSnap.data() } as Product);
-<<<<<<< HEAD
       } else {
         setProduct(findImportedCatalogProduct(id));
-=======
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
       }
       setLoading(false);
     };
@@ -103,7 +94,6 @@ const ProductDetail = () => {
     }
   }, [product, quantity]);
 
-<<<<<<< HEAD
   useEffect(() => {
     if (!product) return;
     setSelectedSize(product.sizeOptions?.[0] || '');
@@ -115,8 +105,6 @@ const ProductDetail = () => {
     setActiveImage(gallery[0] || '');
   }, [product]);
 
-=======
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !id || !comment.trim()) return;
@@ -163,26 +151,17 @@ const ProductDetail = () => {
 
   const hasFlashSale = product.flashSalePrice && product.flashSalePrice > 0;
   const currentPrice = hasFlashSale ? product.flashSalePrice : product.price;
-<<<<<<< HEAD
   const totalPrice = currentPrice * quantity;
   const originalTotalPrice = product.price * quantity;
   const isOutOfStock = !product.inStock || (product.stockCount !== undefined && product.stockCount === 0);
   const maxSelectableQuantity = product.stockCount !== undefined && product.stockCount > 0 ? product.stockCount : 99;
   const productGallery = Array.from(new Set([product.image, ...(product.galleryImages || [])].filter(Boolean)));
-=======
-  const isOutOfStock = !product.inStock || (product.stockCount !== undefined && product.stockCount === 0);
-  const maxSelectableQuantity = product.stockCount !== undefined && product.stockCount > 0 ? product.stockCount : 99;
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 
   return (
     <div className="bg-black text-white min-h-screen pt-24 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumbs */}
-<<<<<<< HEAD
         <nav className="mb-6 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-white/40 md:mb-8">
-=======
-        <nav className="flex items-center space-x-2 text-[10px] uppercase tracking-widest font-bold text-white/40 mb-8">
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
           <Link to="/" className="hover:text-white transition-colors">Home</Link>
           <ChevronRight size={10} />
           <Link to="/shop" className="hover:text-white transition-colors">Shop</Link>
@@ -190,16 +169,11 @@ const ProductDetail = () => {
           <span className="text-orange-500">{product.name}</span>
         </nav>
 
-<<<<<<< HEAD
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-24">
-=======
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
           {/* Product Image */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-<<<<<<< HEAD
             className="space-y-3 md:space-y-4"
           >
             <div className="relative aspect-[3/4] bg-zinc-900 overflow-hidden">
@@ -237,21 +211,6 @@ const ProductDetail = () => {
                 {productGallery.length} product views available
               </p>
             )}
-=======
-            className="relative aspect-[3/4] bg-zinc-900 overflow-hidden"
-          >
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-            {hasFlashSale && (
-              <div className="absolute top-6 left-6 bg-red-600 text-white px-4 py-2 text-xs font-black uppercase tracking-widest animate-pulse">
-                Flash Sale
-              </div>
-            )}
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
           </motion.div>
 
           {/* Product Info */}
@@ -260,7 +219,6 @@ const ProductDetail = () => {
             animate={{ opacity: 1, x: 0 }}
             className="flex flex-col"
           >
-<<<<<<< HEAD
             <div className="mb-6 md:mb-8">
               <p className="text-xs text-orange-500 font-black uppercase tracking-[0.3em] mb-2">
                 {product.category}
@@ -270,17 +228,6 @@ const ProductDetail = () => {
               </h1>
               
               <div className="mb-5 flex items-center space-x-3 sm:space-x-4 md:mb-6">
-=======
-            <div className="mb-8">
-              <p className="text-xs text-orange-500 font-black uppercase tracking-[0.3em] mb-2">
-                {product.category}
-              </p>
-              <h1 className="text-5xl md:text-6xl font-black uppercase italic leading-none tracking-tighter mb-4">
-                {product.name}
-              </h1>
-              
-              <div className="flex items-center space-x-4 mb-6">
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 <div className="flex items-center text-orange-500">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} size={14} fill={i < 4 ? "currentColor" : "none"} />
@@ -294,31 +241,21 @@ const ProductDetail = () => {
               <div className="flex items-baseline space-x-4">
                 {hasFlashSale ? (
                   <>
-<<<<<<< HEAD
-                    <span className="text-3xl sm:text-4xl font-black text-white font-mono">GH₵ {product.flashSalePrice}</span>
-                    <span className="text-lg sm:text-xl text-white/30 line-through font-mono">GH₵ {product.price}</span>
+                    <span className="text-3xl sm:text-4xl font-black text-white font-mono">GHâ‚µ {product.flashSalePrice}</span>
+                    <span className="text-lg sm:text-xl text-white/30 line-through font-mono">GHâ‚µ {product.price}</span>
                   </>
                 ) : (
-                  <span className="text-3xl sm:text-4xl font-black text-white font-mono">GH₵ {product.price}</span>
+                  <span className="text-3xl sm:text-4xl font-black text-white font-mono">GHâ‚µ {product.price}</span>
                 )}
               </div>
               <div className="mt-3 space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-white/35">
-                  Unit Price: GH₵ {currentPrice}
+                  Unit Price: GHâ‚µ {currentPrice}
                 </p>
                 <p className="text-sm font-bold uppercase tracking-widest text-orange-500">
-                  Total For {quantity}: GH₵ {totalPrice}
+                  Total For {quantity}: GHâ‚µ {totalPrice}
                 </p>
               </div>
-=======
-                    <span className="text-4xl font-black text-white font-mono">GH₵ {product.flashSalePrice}</span>
-                    <span className="text-xl text-white/30 line-through font-mono">GH₵ {product.price}</span>
-                  </>
-                ) : (
-                  <span className="text-4xl font-black text-white font-mono">GH₵ {product.price}</span>
-                )}
-              </div>
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
             </div>
 
             <div className="prose prose-invert max-w-none mb-10">
@@ -346,7 +283,6 @@ const ProductDetail = () => {
 
             {/* Actions */}
             <div className="space-y-6 mb-12">
-<<<<<<< HEAD
               {!!product.sizeOptions?.length && (
                 <div>
                   <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/45">Select Size</p>
@@ -371,10 +307,6 @@ const ProductDetail = () => {
               )}
               {!isOutOfStock && (
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
-=======
-              {!isOutOfStock && (
-                <div className="flex items-center space-x-4">
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                   <div className="flex items-center border border-white/10 bg-zinc-900">
                     <button 
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -390,15 +322,9 @@ const ProductDetail = () => {
                       <Plus size={16} />
                     </button>
                   </div>
-<<<<<<< HEAD
                     <button 
                       onClick={() => {
                       addToCartQuantity(product, quantity, selectedSize || undefined);
-=======
-                  <button 
-                    onClick={() => {
-                      addToCartQuantity(product, quantity);
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                       window.dispatchEvent(new Event('open-cart'));
                     }}
                     className="flex-1 bg-white text-black py-4 text-sm font-black uppercase tracking-widest hover:bg-orange-500 transition-all flex items-center justify-center space-x-3 group"
@@ -420,11 +346,7 @@ const ProductDetail = () => {
                 </div>
               )}
               
-<<<<<<< HEAD
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-=======
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 {[
                   { icon: Truck, text: "Fast Delivery" },
                   { icon: ShieldCheck, text: "Secure Checkout" },
@@ -444,13 +366,8 @@ const ProductDetail = () => {
         <section className="mt-24 border-t border-white/5 pt-24">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
             <div>
-<<<<<<< HEAD
               <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter mb-2">Customer Reviews</h2>
               <div className="flex items-center space-x-3 sm:space-x-4">
-=======
-              <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-2">Customer Reviews</h2>
-              <div className="flex items-center space-x-4">
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 <div className="flex items-center text-orange-500">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} size={16} fill={i < 4 ? "currentColor" : "none"} />
@@ -480,11 +397,7 @@ const ProductDetail = () => {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden mb-12"
               >
-<<<<<<< HEAD
                 <form onSubmit={handleAddReview} className="max-w-2xl border border-white/10 bg-zinc-900 p-5 sm:p-8">
-=======
-                <form onSubmit={handleAddReview} className="bg-zinc-900 p-8 border border-white/10 max-w-2xl">
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                   <div className="mb-6">
                     <label className="block text-[10px] uppercase tracking-widest font-bold text-white/40 mb-4">Rating</label>
                     <div className="flex space-x-2">
@@ -564,8 +477,4 @@ const ProductDetail = () => {
   );
 };
 
-<<<<<<< HEAD
 export default ProductDetail;
-=======
-export default ProductDetail;
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee

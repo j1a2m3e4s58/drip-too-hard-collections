@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingBag, ArrowRight, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -7,10 +7,7 @@ import { db } from '../firebase';
 import { Product } from '../types';
 import { useWishlist } from '../hooks/useWishlist';
 import ProductCard from '../components/ProductCard';
-<<<<<<< HEAD
 import { mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
-=======
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 
 const Wishlist = () => {
   const { wishlist, toggleWishlist, loading: wishlistLoading } = useWishlist();
@@ -31,12 +28,8 @@ const Wishlist = () => {
           where(documentId(), 'in', wishlist)
         );
         const snapshot = await getDocs(q);
-<<<<<<< HEAD
         const next = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
         setProducts(mergeWithImportedCatalogProducts(next).filter((product) => wishlist.includes(product.id)));
-=======
-        setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[]);
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
       } catch (error) {
         console.error("Error fetching wishlist products:", error);
       } finally {

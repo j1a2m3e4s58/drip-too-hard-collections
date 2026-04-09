@@ -1,8 +1,7 @@
-export interface Product {
+﻿export interface Product {
   id: string;
   name: string;
   price: number;
-<<<<<<< HEAD
   category: string;
   image: string;
   galleryImages?: string[];
@@ -10,27 +9,16 @@ export interface Product {
   isNew?: boolean;
   isBestseller?: boolean;
   featured?: boolean;
-=======
-  category: 'Tees' | 'Sneakers' | 'Accessories';
-  image: string;
-  description: string;
-  isNew?: boolean;
-  isBestseller?: boolean;
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
   inStock: boolean;
   stockCount?: number;
   flashSalePrice?: number;
   flashSaleEnd?: any;
-<<<<<<< HEAD
   sizeOptions?: string[];
   imageSourceType?: 'url' | 'upload' | 'drive';
   imageOriginalUrl?: string;
   imageStoragePath?: string;
   createdAt?: any;
   updatedAt?: any;
-=======
-  createdAt?: any;
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 }
 
 export interface Order {
@@ -42,10 +30,7 @@ export interface Order {
     price: number;
     quantity: number;
     image: string;
-<<<<<<< HEAD
     selectedSize?: string;
-=======
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
   }[];
   total: number;
   status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
@@ -57,7 +42,6 @@ export interface Order {
     address: string;
   };
   paymentMethod: string;
-<<<<<<< HEAD
   paymentStatus?: 'Pending' | 'Paid' | 'Part Paid' | 'Failed';
   paymentProofStatus?: 'Not Sent' | 'Received' | 'Reviewed';
   orderUpdateStatus?: 'Not Sent' | 'Sent';
@@ -69,9 +53,6 @@ export interface Order {
   paymentProofUrl?: string;
   createdAt: any;
   updatedAt?: any;
-=======
-  createdAt: any;
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 }
 
 export interface Review {
@@ -108,7 +89,6 @@ export interface Collection {
   description: string;
   image: string;
   story: string;
-<<<<<<< HEAD
   featured?: boolean;
   sortOrder?: number;
   ctaText?: string;
@@ -116,14 +96,11 @@ export interface Collection {
   imageSourceType?: 'url' | 'upload' | 'drive';
   imageOriginalUrl?: string;
   imageStoragePath?: string;
-=======
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 }
 
 export interface LookbookItem {
   id: string;
   image: string;
-<<<<<<< HEAD
   title?: string;
   caption: string;
   description?: string;
@@ -226,7 +203,4 @@ export interface StoreSettings {
   aboutStatFourValue: string;
   aboutStatFourLabel: string;
   themeModeLabel?: string;
-=======
-  caption: string;
->>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 }
