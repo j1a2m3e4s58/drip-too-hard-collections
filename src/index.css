@@ -16,6 +16,7 @@
   }
 }
 
+<<<<<<< HEAD
 @layer base {
   .rounded,
   .rounded-sm,
@@ -78,6 +79,8 @@
   }
 }
 
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 body {
   @apply bg-black text-white font-sans antialiased;
 }

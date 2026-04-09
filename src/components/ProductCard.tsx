@@ -41,7 +41,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </Link>
         
         {/* Badges */}
+<<<<<<< HEAD
         <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none sm:top-4 sm:left-4 sm:gap-2">
+=======
+        <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
           {!product.inStock || product.stockCount === 0 ? (
             <span className="bg-red-600 text-white text-[10px] font-black uppercase px-2 py-1 tracking-tighter">
               Sold Out
@@ -75,7 +79,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             toggleWishlist(product.id);
           }}
           className={cn(
+<<<<<<< HEAD
             "absolute top-3 right-3 p-2 rounded-full transition-all duration-300 z-10 sm:top-4 sm:right-4",
+=======
+            "absolute top-4 right-4 p-2 rounded-full transition-all duration-300 z-10",
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
             isInWishlist ? "bg-orange-500 text-black" : "bg-black/40 text-white hover:bg-white hover:text-black backdrop-blur-md"
           )}
         >
@@ -91,7 +99,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                   e.preventDefault();
                   addToCart(product);
                 }}
+<<<<<<< HEAD
                 className="bg-white text-black px-4 py-2.5 sm:px-6 sm:py-3 text-[10px] sm:text-xs font-bold uppercase tracking-widest flex items-center space-x-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 hover:bg-orange-500"
+=======
+                className="bg-white text-black px-6 py-3 text-xs font-bold uppercase tracking-widest flex items-center space-x-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 hover:bg-orange-500"
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
               >
                 <span>Add to Bag</span>
                 <ShoppingBag size={14} />
@@ -105,13 +117,21 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
       </div>
 
+<<<<<<< HEAD
       <div className="mt-3 space-y-1 sm:mt-4">
+=======
+      <div className="mt-4 space-y-1">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
         <div className="flex justify-between items-start">
           <div>
             <p className="text-[10px] text-orange-500 uppercase tracking-widest font-bold">
               {product.category}
             </p>
+<<<<<<< HEAD
             <h3 className="text-[13px] leading-5 sm:text-sm font-bold text-white group-hover:text-orange-500 transition-colors">
+=======
+            <h3 className="text-sm font-bold text-white group-hover:text-orange-500 transition-colors">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
               {product.name}
             </h3>
           </div>

@@ -1,13 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, User } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+<<<<<<< HEAD
 import { getStorage } from 'firebase/storage';
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+<<<<<<< HEAD
 export const storage = getStorage(app);
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -100,4 +106,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee

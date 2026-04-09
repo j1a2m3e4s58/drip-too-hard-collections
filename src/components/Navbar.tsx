@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+<<<<<<< HEAD
 import { Menu, X, ShoppingBag, Search, Heart, ArrowRight, Eye, EyeOff, KeyRound, ShieldAlert, Truck } from 'lucide-react';
+=======
+import { Menu, X, ShoppingBag, Search, Heart, ArrowRight } from 'lucide-react';
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -10,6 +14,7 @@ import Cart from './Cart';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Product } from '../types';
+<<<<<<< HEAD
 import { mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
 import {
   ADMIN_RESET_PASSWORD,
@@ -20,6 +25,8 @@ import {
   unlockAdminSession,
   verifyAdminPassword,
 } from '../lib/adminAuth';
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,6 +37,7 @@ const Navbar = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isLogoLongPressTriggered, setIsLogoLongPressTriggered] = useState(false);
+<<<<<<< HEAD
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
@@ -42,6 +50,8 @@ const Navbar = () => {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -71,9 +81,14 @@ const Navbar = () => {
           );
           const snapshot = await getDocs(q);
           const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+<<<<<<< HEAD
           const merged = mergeWithImportedCatalogProducts(all);
           // Simple client-side filter for better UX since Firestore doesn't support partial matches easily without extra indexing
           const filtered = merged.filter(p => 
+=======
+          // Simple client-side filter for better UX since Firestore doesn't support partial matches easily without extra indexing
+          const filtered = all.filter(p => 
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
             p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
             p.category.toLowerCase().includes(searchQuery.toLowerCase())
           );
@@ -103,6 +118,7 @@ const Navbar = () => {
     const handleOpenCart = () => {
       setIsCartOpen(true);
     };
+<<<<<<< HEAD
     const handleAdminSession = () => {
       setIsAdminUnlocked(isAdminSessionOpen());
     };
@@ -113,6 +129,13 @@ const Navbar = () => {
     return () => {
       window.removeEventListener('open-cart', handleOpenCart);
       window.removeEventListener('admin-session-changed', handleAdminSession);
+=======
+
+    window.addEventListener('open-cart', handleOpenCart);
+
+    return () => {
+      window.removeEventListener('open-cart', handleOpenCart);
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
     };
   }, []);
   const startLogoLongPress = () => {
@@ -122,9 +145,13 @@ const Navbar = () => {
     }
     longPressTimerRef.current = window.setTimeout(() => {
       setIsLogoLongPressTriggered(true);
+<<<<<<< HEAD
       setAdminError('');
       setIsResetMode(false);
       setIsAdminModalOpen(true);
+=======
+      navigate('/admin');
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
     }, 1200);
   };
 
@@ -147,11 +174,15 @@ const Navbar = () => {
     { name: 'Shop', path: '/shop' },
     { name: 'Collections', path: '/collections' },
     { name: 'Lookbook', path: '/lookbook' },
+<<<<<<< HEAD
     { name: 'Track Order', path: '/track-order' },
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
   ];
 
+<<<<<<< HEAD
   const closeAdminModal = () => {
     setIsAdminModalOpen(false);
     setIsResetMode(false);
@@ -200,6 +231,11 @@ const Navbar = () => {
     { label: 'One number', valid: /\d/.test(newAdminPassword) },
     { label: 'One special character', valid: /[^A-Za-z0-9]/.test(newAdminPassword) },
   ];
+=======
+  if (isAdmin) {
+    navLinks.push({ name: 'Admin', path: '/admin' });
+  }
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
 
   return (
     <>
@@ -208,10 +244,17 @@ const Navbar = () => {
           'fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b',
           scrolled 
             ? 'bg-black/90 backdrop-blur-md py-3 border-white/10' 
+<<<<<<< HEAD
             : 'bg-transparent py-4 md:py-6 border-transparent'
         )}
       >
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8">
+=======
+            : 'bg-transparent py-6 border-transparent'
+        )}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
           <div className="flex justify-between items-center">
             {/* Logo */}
             <Link
@@ -226,7 +269,11 @@ const Navbar = () => {
               onTouchCancel={cancelLogoLongPress}
               onContextMenu={(e) => e.preventDefault()}
             >
+<<<<<<< HEAD
               <span className="text-[1.55rem] md:text-2xl font-black tracking-tighter text-white italic select-none">
+=======
+              <span className="text-2xl font-black tracking-tighter text-white italic select-none">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 DTHC<span className="text-orange-500">.</span>
               </span>
             </Link>
@@ -277,6 +324,7 @@ const Navbar = () => {
             </div>
 
             {/* Mobile Menu Button */}
+<<<<<<< HEAD
             <div
               className={cn(
                 'md:hidden flex items-center gap-1 pr-2',
@@ -288,14 +336,27 @@ const Navbar = () => {
               </button>
               <Link to="/wishlist" className="relative shrink-0 p-0.5 text-white/70">
                 <Heart size={15} />
+=======
+            <div className="md:hidden flex items-center space-x-4">
+              <button onClick={() => setIsSearchOpen(true)} className="text-white/70">
+                <Search size={20} />
+              </button>
+              <Link to="/wishlist" className="text-white/70 relative">
+                <Heart size={20} />
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 {wishlist.length > 0 && (
                   <span className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                     {wishlist.length}
                   </span>
                 )}
               </Link>
+<<<<<<< HEAD
               <button onClick={() => setIsCartOpen(true)} className="relative shrink-0 p-0.5 text-white/70">
                 <ShoppingBag size={15} />
+=======
+              <button onClick={() => setIsCartOpen(true)} className="text-white/70 relative">
+                <ShoppingBag size={20} />
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 {itemCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                     {itemCount}
@@ -304,9 +365,15 @@ const Navbar = () => {
               </button>
               <button
                 onClick={() => setIsOpen(!isOpen)}
+<<<<<<< HEAD
                 className="shrink-0 pl-1 pr-0.5 py-0.5 text-white transition-colors hover:text-orange-500"
               >
                 {isOpen ? <X size={18} /> : <Menu size={18} />}
+=======
+                className="text-white hover:text-orange-500 transition-colors"
+              >
+                {isOpen ? <X size={24} /> : <Menu size={24} />}
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
               </button>
             </div>
           </div>
@@ -321,14 +388,22 @@ const Navbar = () => {
               exit={{ opacity: 0, height: 0 }}
               className="md:hidden bg-black border-b border-white/10 overflow-hidden"
             >
+<<<<<<< HEAD
               <div className="px-4 pt-2 pb-6 space-y-3">
+=======
+              <div className="px-4 pt-2 pb-6 space-y-4">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 {navLinks.map((link) => (
                   <Link
                     key={link.name}
                     to={link.path}
                     onClick={() => setIsOpen(false)}
                     className={cn(
+<<<<<<< HEAD
                       'block border-b border-white/5 pb-3 text-base font-bold tracking-tight uppercase',
+=======
+                      'block text-lg font-bold tracking-tight uppercase',
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                       location.pathname === link.path ? 'text-orange-500' : 'text-white'
                     )}
                   >
@@ -350,7 +425,11 @@ const Navbar = () => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/95 z-[100] flex flex-col"
           >
+<<<<<<< HEAD
             <div className="p-4 sm:p-6 flex justify-end">
+=======
+            <div className="p-6 flex justify-end">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
               <button 
                 onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
                 className="text-white/50 hover:text-orange-500 transition-colors"
@@ -358,8 +437,13 @@ const Navbar = () => {
                 <X size={32} />
               </button>
             </div>
+<<<<<<< HEAD
             <div className="flex-grow flex flex-col items-center pt-8 px-4 sm:pt-12">
               <div className="w-full max-w-3xl space-y-8 sm:space-y-12">
+=======
+            <div className="flex-grow flex flex-col items-center pt-12 px-4">
+              <div className="w-full max-w-3xl space-y-12">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                 <div className="relative">
                   <input 
                     autoFocus
@@ -367,12 +451,21 @@ const Navbar = () => {
                     placeholder="SEARCH FOR DRIP..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+<<<<<<< HEAD
                     className="w-full bg-transparent border-b-2 border-white/10 text-2xl sm:text-4xl md:text-6xl font-black uppercase italic tracking-tighter py-4 outline-none focus:border-orange-500 transition-colors placeholder:text-white/5"
                   />
                   <Search className="absolute right-0 top-1/2 -translate-y-1/2 text-white/20" size={28} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
+=======
+                    className="w-full bg-transparent border-b-2 border-white/10 text-4xl md:text-6xl font-black uppercase italic tracking-tighter py-4 outline-none focus:border-orange-500 transition-colors placeholder:text-white/5"
+                  />
+                  <Search className="absolute right-0 top-1/2 -translate-y-1/2 text-white/20" size={48} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                   {isSearching ? (
                     <div className="col-span-full py-12 text-center">
                       <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
@@ -383,14 +476,24 @@ const Navbar = () => {
                         key={product.id}
                         to={`/product/${product.id}`}
                         onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
+<<<<<<< HEAD
                         className="flex items-center space-x-3 p-3 sm:p-4 bg-zinc-900/50 border border-white/5 hover:border-orange-500 transition-all group"
                       >
                         <div className="w-16 h-16 sm:w-20 sm:h-20 bg-black flex-shrink-0 overflow-hidden">
+=======
+                        className="flex items-center space-x-4 p-4 bg-zinc-900/50 border border-white/5 hover:border-orange-500 transition-all group"
+                      >
+                        <div className="w-20 h-20 bg-black flex-shrink-0 overflow-hidden">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                           <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         </div>
                         <div>
                           <p className="text-[10px] text-orange-500 uppercase font-bold tracking-widest">{product.category}</p>
+<<<<<<< HEAD
                           <h3 className="text-sm sm:text-lg font-black uppercase italic tracking-tight">{product.name}</h3>
+=======
+                          <h3 className="text-lg font-black uppercase italic tracking-tight">{product.name}</h3>
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                           <p className="text-sm font-mono text-white/50">GH₵ {product.price}</p>
                         </div>
                         <ArrowRight className="ml-auto text-white/20 group-hover:text-orange-500 group-hover:translate-x-2 transition-all" size={20} />
@@ -408,6 +511,7 @@ const Navbar = () => {
         )}
       </AnimatePresence>
 
+<<<<<<< HEAD
       <AnimatePresence>
         {isAdminModalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[4px]">
@@ -468,11 +572,14 @@ const Navbar = () => {
         )}
       </AnimatePresence>
 
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
       <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
   );
 };
 
+<<<<<<< HEAD
 const PasswordField = ({
   value,
   onChange,
@@ -493,3 +600,6 @@ const PasswordField = ({
 );
 
 export default Navbar;
+=======
+export default Navbar;
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee

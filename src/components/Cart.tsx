@@ -48,7 +48,11 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
             <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar">
               {cart.length > 0 ? (
                 cart.map((item) => (
+<<<<<<< HEAD
                   <div key={item.cartKey} className="flex space-x-4 group">
+=======
+                  <div key={item.id} className="flex space-x-4 group">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                     <div className="w-24 aspect-[3/4] bg-zinc-900 overflow-hidden">
                       <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </div>
@@ -56,25 +60,40 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
                       <div>
                         <div className="flex justify-between items-start">
                           <h3 className="text-sm font-bold uppercase tracking-tight group-hover:text-orange-500 transition-colors">{item.name}</h3>
+<<<<<<< HEAD
                           <button onClick={() => removeFromCart(item.cartKey)} className="text-white/30 hover:text-red-500 transition-colors">
+=======
+                          <button onClick={() => removeFromCart(item.id)} className="text-white/30 hover:text-red-500 transition-colors">
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                             <Trash2 size={14} />
                           </button>
                         </div>
                         <p className="text-[10px] text-white/50 uppercase tracking-widest font-bold mt-1">{item.category}</p>
+<<<<<<< HEAD
                         {item.selectedSize && <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-orange-400">Size {item.selectedSize}</p>}
+=======
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                       </div>
                       
                       <div className="flex justify-between items-end">
                         <div className="flex items-center border border-white/10 bg-black">
                           <button 
+<<<<<<< HEAD
                             onClick={() => updateQuantity(item.cartKey, item.quantity - 1)}
+=======
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                             className="p-1 hover:text-orange-500 transition-colors"
                           >
                             <Minus size={12} />
                           </button>
                           <span className="w-8 text-center text-xs font-mono">{item.quantity}</span>
                           <button 
+<<<<<<< HEAD
                             onClick={() => updateQuantity(item.cartKey, item.quantity + 1)}
+=======
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+>>>>>>> b5da4f6c8f87f3bd93256a9efd97c5d34ba209ee
                             className="p-1 hover:text-orange-500 transition-colors"
                           >
                             <Plus size={12} />
