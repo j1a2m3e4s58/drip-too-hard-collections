@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: products
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required)
+    //   - price: number (required)
+    //   - category: string (required, enum: Tees, Sneakers, Accessories)
+    //   - image: string (required, url)
+    //   - description: string (required)
+    //   - isNew: bool (optional)
+    //   - isBestseller: bool (optional)
+    //   - inStock: bool (required)
+    //   - createdAt: timestamp (optional)
+    //   - updatedAt: timestamp (optional)
+    //
+    // Collection: users
+    // Document ID: userId (auth.uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string (optional)
+    //   - role: string (required, enum: admin, user)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "maxwinflip@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'category', 'image', 'description', 'inStock']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.price is number && data.price >= 0 &&
+             data.category is string && data.category.size() > 0 &&
+             data.image is string && (data.image.matches("^https?://.*") || data.image.matches("^data:image/.*")) &&
+             data.description is string && data.description.size() < 2000 &&
+             data.inStock is bool;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'items', 'total', 'status', 'shippingAddress']) &&
+             (data.userId == 'guest' || data.userId == request.auth.uid) &&
+             data.items is list &&
+             data.total is number &&
+             data.status in ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    }
+
+    function isValidReview(data) {
+      return data.keys().hasAll(['productId', 'userId', 'rating', 'comment']) &&
+             data.userId == request.auth.uid &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() < 500;
+    }
+
+    function isValidCoupon(data) {
+      return data.keys().hasAll(['code', 'discountType', 'value', 'isActive']) &&
+             data.code is string &&
+             data.discountType in ['percentage', 'fixed'] &&
+             data.value is number &&
+             data.isActive is bool;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.role in ['admin', 'user'] &&
+             (!('wishlist' in data) || data.wishlist is list);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if (isAuthenticated() && (isOwner(resource.data.userId) || isAdmin())) || (resource.data.userId == 'guest');
+      allow create: if (isAuthenticated() || request.resource.data.userId == 'guest') && isValidOrder(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin() && resource.data.status == 'Delivered';
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidReview(request.resource.data);
+      allow update, delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    match /coupons/{couponId} {
+      allow read: if true; // Allow checking if coupon exists
+      allow create, update, delete: if isAdmin() && isValidCoupon(request.resource.data);
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      allow update: if isAdmin() || (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role);
+    }
+
+    match /heroBanners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /storefrontCollections/{collectionId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /lookbookItems/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /deliveryZones/{zoneId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /storefront/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

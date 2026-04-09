@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer utilities {
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+}
+
+@layer base {
+  .rounded,
+  .rounded-sm,
+  .rounded-md,
+  .rounded-lg,
+  .rounded-xl,
+  .rounded-2xl,
+  .rounded-3xl,
+  .rounded-full,
+  [class*="rounded-["] {
+    border-radius: 0.45rem !important;
+  }
+
+  .rounded-t,
+  .rounded-t-sm,
+  .rounded-t-md,
+  .rounded-t-lg,
+  .rounded-t-xl,
+  .rounded-t-2xl,
+  .rounded-t-3xl,
+  [class*="rounded-t-["] {
+    border-top-left-radius: 0.45rem !important;
+    border-top-right-radius: 0.45rem !important;
+  }
+
+  .rounded-b,
+  .rounded-b-sm,
+  .rounded-b-md,
+  .rounded-b-lg,
+  .rounded-b-xl,
+  .rounded-b-2xl,
+  .rounded-b-3xl,
+  [class*="rounded-b-["] {
+    border-bottom-left-radius: 0.45rem !important;
+    border-bottom-right-radius: 0.45rem !important;
+  }
+
+  .rounded-l,
+  .rounded-l-sm,
+  .rounded-l-md,
+  .rounded-l-lg,
+  .rounded-l-xl,
+  .rounded-l-2xl,
+  .rounded-l-3xl,
+  [class*="rounded-l-["] {
+    border-top-left-radius: 0.45rem !important;
+    border-bottom-left-radius: 0.45rem !important;
+  }
+
+  .rounded-r,
+  .rounded-r-sm,
+  .rounded-r-md,
+  .rounded-r-lg,
+  .rounded-r-xl,
+  .rounded-r-2xl,
+  .rounded-r-3xl,
+  [class*="rounded-r-["] {
+    border-top-right-radius: 0.45rem !important;
+    border-bottom-right-radius: 0.45rem !important;
+  }
+}
+
+body {
+  @apply bg-black text-white font-sans antialiased;
+}
+
+::selection {
+  @apply bg-orange-500 text-black;
+}
