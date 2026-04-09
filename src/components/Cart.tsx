@@ -68,7 +68,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <ShoppingBag size={20} className="text-orange-500" />
-                <h2 className="text-lg font-black uppercase italic tracking-tighter text-white md:text-xl">Your Bag ({itemCount})</h2>
+                <h2 className="text-lg font-black uppercase italic tracking-tight text-white md:text-xl">Your Bag ({itemCount})</h2>
               </div>
               <button
                 onClick={onClose}
@@ -77,6 +77,7 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
                 <X size={22} />
               </button>
               </div>
+              <div className="mt-4 h-px w-full bg-gradient-to-r from-orange-500/0 via-orange-500/70 to-orange-500/0" />
             </div>
 
             {/* Items */}
@@ -123,9 +124,14 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
                   </div>
                 ))
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
-                  <ShoppingBag size={48} />
-                  <p className="text-xs uppercase font-bold tracking-widest">Your bag is empty</p>
+                <div className="flex h-full flex-col items-center justify-center space-y-4 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center border border-white/10 bg-zinc-900 text-orange-500">
+                    <ShoppingBag size={36} />
+                  </div>
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-white">Your bag is empty</p>
+                  <p className="max-w-[220px] text-xs uppercase tracking-[0.16em] text-white/45">
+                    Add products from the shop and they will appear here instantly.
+                  </p>
                 </div>
               )}
             </div>

@@ -9,10 +9,7 @@ import { defaultStoreSettings, STOREFRONT_SETTINGS_DOC } from '../lib/storefront
 const FloatingWhatsAppButton = () => {
   const location = useLocation();
   const [settings, setSettings] = useState<StoreSettings>({ id: 'settings', ...defaultStoreSettings });
-
-  if (location.pathname.startsWith('/admin') || location.pathname === '/login') {
-    return null;
-  }
+  const hideButton = location.pathname.startsWith('/admin') || location.pathname === '/login';
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, STOREFRONT_SETTINGS_DOC), (snap) => {
@@ -26,6 +23,10 @@ const FloatingWhatsAppButton = () => {
 
   const cleanNumber = settings.supportWhatsapp.replace(/\D/g, '');
   const message = encodeURIComponent('Hello DTHC team, I need help with a product or order.');
+
+  if (hideButton) {
+    return null;
+  }
 
   return (
     <a

@@ -1,9 +1,8 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingBag, Search, Heart, ArrowRight, Eye, EyeOff, KeyRound, ShieldAlert, Truck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatGhanaCedis } from '../lib/utils';
-import { useAuth } from '../hooks/useAuth';
 import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
 import Cart from './Cart';
@@ -44,8 +43,6 @@ const Navbar = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const location = useLocation();
-  const navigate = useNavigate();
-  const { isAdmin } = useAuth();
   const { wishlist } = useWishlist();
   const { itemCount } = useCart();
   const longPressTimerRef = useRef<number | null>(null);
@@ -162,6 +159,11 @@ const Navbar = () => {
     setAdminError('');
   };
 
+  const openAdminPage = () => {
+    const adminUrl = `${window.location.origin}${window.location.pathname}#/admin`;
+    window.location.assign(adminUrl);
+  };
+
   const openAdminArea = () => {
     if (!verifyAdminPassword(adminPassword)) {
       setAdminError('Wrong admin password.');
@@ -170,7 +172,7 @@ const Navbar = () => {
     unlockAdminSession();
     setIsAdminUnlocked(true);
     closeAdminModal();
-    navigate('/admin');
+    openAdminPage();
   };
 
   const handleResetPassword = () => {
@@ -190,7 +192,7 @@ const Navbar = () => {
     unlockAdminSession();
     setIsAdminUnlocked(true);
     closeAdminModal();
-    navigate('/admin');
+    openAdminPage();
   };
 
   const passwordChecks = [
@@ -279,34 +281,34 @@ const Navbar = () => {
             {/* Mobile Menu Button */}
             <div
               className={cn(
-                'md:hidden flex items-center gap-1.5 pr-2',
+                'md:hidden flex items-center gap-2.5 pr-3',
                 location.pathname === '/collections' && 'mr-5'
               )}
             >
-              <button onClick={() => setIsSearchOpen(true)} className="shrink-0 p-0.5 text-white/80">
-                <Search size={17} />
+              <button onClick={() => setIsSearchOpen(true)} className="shrink-0 p-1 text-white/85 transition-colors hover:text-orange-400">
+                <Search size={20} strokeWidth={2.2} />
               </button>
-              <Link to="/wishlist" className="relative shrink-0 p-0.5 text-white/80">
-                <Heart size={17} />
+              <Link to="/wishlist" className="relative shrink-0 p-1 text-white/85 transition-colors hover:text-orange-400">
+                <Heart size={20} strokeWidth={2.2} />
                 {wishlist.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-black">
                     {wishlist.length}
                   </span>
                 )}
               </Link>
-              <button onClick={() => setIsCartOpen(true)} className="relative shrink-0 p-0.5 text-white/80">
-                <ShoppingBag size={17} />
+              <button onClick={() => setIsCartOpen(true)} className="relative shrink-0 p-1 text-white/85 transition-colors hover:text-orange-400">
+                <ShoppingBag size={20} strokeWidth={2.2} />
                 {itemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-black">
                     {itemCount}
                   </span>
                 )}
               </button>
               <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="shrink-0 pl-1 pr-0.5 py-0.5 text-white transition-colors hover:text-orange-500"
+                className="shrink-0 pl-1.5 pr-1 py-1 text-white transition-colors hover:text-orange-500"
               >
-                {isOpen ? <X size={20} /> : <Menu size={20} />}
+                {isOpen ? <X size={24} strokeWidth={2.2} /> : <Menu size={24} strokeWidth={2.2} />}
               </button>
             </div>
           </div>

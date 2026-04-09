@@ -17,9 +17,11 @@ import {
   Bell,
   LayoutPanelTop,
   MapPinned,
+  MessageSquare,
   Package,
   Pencil,
   Plus,
+  Reply,
   Save,
   Settings2,
   ShoppingBag,
@@ -31,6 +33,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { db } from '../firebase';
 import {
   Collection as StoreCollection,
+  ContactMessage,
   DeliveryZone,
   HeroBanner,
   LookbookItem,
@@ -43,8 +46,8 @@ import ImageSourceField from '../components/admin/ImageSourceField';
 import { importedCatalogProducts, mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
 import { formatGhanaCedis } from '../lib/utils';
 
-type Section = 'products' | 'hero' | 'collections' | 'lookbook' | 'settings' | 'delivery' | 'orders';
-const sectionIds: Section[] = ['products', 'hero', 'collections', 'lookbook', 'settings', 'delivery', 'orders'];
+type Section = 'products' | 'hero' | 'collections' | 'lookbook' | 'settings' | 'delivery' | 'orders' | 'messages';
+const sectionIds: Section[] = ['products', 'hero', 'collections', 'lookbook', 'settings', 'delivery', 'orders', 'messages'];
 
 const emptyProduct = {
   name: '',
@@ -234,6 +237,7 @@ const Admin = () => {
   const [collectionsData, setCollectionsData] = useState<StoreCollection[]>([]);
   const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [settings, setSettings] = useState<StoreSettings>({ id: 'settings', ...defaultStoreSettings });
 
   const [productForm, setProductForm] = useState(emptyProduct);
@@ -247,6 +251,7 @@ const Admin = () => {
   const [pendingDelete, setPendingDelete] = useState<{ collectionName: string; itemId: string; label: string } | null>(null);
   const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
 
   const sizePresets = {
     tops: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
@@ -276,6 +281,9 @@ const Admin = () => {
     const unsubZones = onSnapshot(query(collection(db, 'deliveryZones'), orderBy('sortOrder', 'asc')), (snap) => {
       setDeliveryZones(snap.empty ? defaultDeliveryZones : (snap.docs.map((item) => ({ id: item.id, ...item.data() })) as DeliveryZone[]));
     });
+    const unsubMessages = onSnapshot(query(collection(db, 'contacts'), orderBy('createdAt', 'desc')), (snap) => {
+      setContactMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ContactMessage[]);
+    });
     const unsubSettings = onSnapshot(doc(db, STOREFRONT_SETTINGS_DOC), (snap) => {
       setSettings(snap.exists() ? { id: snap.id, ...defaultStoreSettings, ...(snap.data() as Omit<StoreSettings, 'id'>) } : { id: 'settings', ...defaultStoreSettings });
     });
@@ -286,6 +294,7 @@ const Admin = () => {
       unsubCollections();
       unsubLookbook();
       unsubZones();
+      unsubMessages();
       unsubSettings();
     };
   }, []);
@@ -301,8 +310,9 @@ const Admin = () => {
       collections: collectionsData.filter((item) => item.featured).length,
       zones: deliveryZones.filter((item) => item.active).length,
       pending: orders.filter((item) => item.status === 'Pending').length,
+      messages: contactMessages.filter((item) => item.status !== 'replied').length,
     }),
-    [collectionsData, deliveryZones, heroBanners, orders, products],
+    [collectionsData, contactMessages, deliveryZones, heroBanners, orders, products],
   );
 
   const receivedOrderCount = useMemo(
@@ -314,10 +324,11 @@ const Admin = () => {
     { id: 'products' as const, title: 'Product Management', description: 'Edit products, stock, featured states, prices, and images.', icon: Package },
     { id: 'hero' as const, title: 'Hero Banner Management', description: 'Control homepage banners, CTA text, images, and ordering.', icon: LayoutPanelTop },
     { id: 'collections' as const, title: 'Collections Management', description: 'Create and feature collections for storefront discovery.', icon: Boxes },
-  { id: 'lookbook' as const, title: 'Lookbook Management', description: 'Manage style inspiration cards and lookbook images.', icon: LayoutPanelTop },
+    { id: 'lookbook' as const, title: 'Lookbook Management', description: 'Manage style inspiration cards and lookbook images.', icon: LayoutPanelTop },
     { id: 'settings' as const, title: 'Store Settings', description: 'Update messaging, support contacts, and page copy.', icon: Settings2 },
     { id: 'delivery' as const, title: 'Delivery Zones', description: 'Manage zone names, fees, ETAs, and active states.', icon: MapPinned },
     { id: 'orders' as const, title: 'Customer Orders', description: 'Track order, payment, proof, and fulfillment status.', icon: UserRoundCog },
+    { id: 'messages' as const, title: 'Customer Messages', description: 'See contact submissions and reply directly from admin.', icon: MessageSquare },
   ];
 
   const resetEditor = () => {
@@ -452,6 +463,31 @@ const Admin = () => {
     }
   };
 
+  const saveContactReply = async (messageId: string) => {
+    const reply = (replyDrafts[messageId] || '').trim();
+    if (!reply) {
+      showNotice('error', 'Write a reply before sending it.');
+      return;
+    }
+
+    setBusyAction(`message-${messageId}`);
+    try {
+      await updateDoc(doc(db, 'contacts', messageId), {
+        adminReply: reply,
+        status: 'replied',
+        repliedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      showNotice('success', 'Reply sent to customer thread.');
+    } catch (error) {
+      console.error('Failed to send contact reply:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      showNotice('error', `Could not send contact reply. ${message}`);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const handleDeleteDoc = async (collectionName: string, itemId: string, label: string) => {
     setPendingDelete({ collectionName, itemId, label });
   };
@@ -548,7 +584,7 @@ const Admin = () => {
 
   const renderForm = () => {
     if (!section) return null;
-    if (!showForm || section === 'settings' || section === 'orders') return null;
+    if (!showForm || section === 'settings' || section === 'orders' || section === 'messages') return null;
     return (
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="rounded-[1.75rem] border border-white/10 bg-zinc-950 p-4 sm:p-5">
         <div className="mb-5 flex items-center justify-between">
@@ -800,6 +836,7 @@ const Admin = () => {
             <StatCard label="Featured collections" value={overview.collections} icon={Boxes} />
             <StatCard label="Active zones" value={overview.zones} icon={MapPinned} />
             <StatCard label="Pending orders" value={overview.pending} icon={ShoppingBag} />
+            <StatCard label="Open messages" value={overview.messages} icon={MessageSquare} />
           </div>
 
           <div className="grid gap-4 md:gap-6 md:grid-cols-2">
@@ -1105,6 +1142,75 @@ const Admin = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {section === 'messages' && (
+            <div className="space-y-6">
+              {contactMessages.length ? (
+                contactMessages.map((message) => (
+                  <div key={message.id} className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-5 backdrop-blur-xl">
+                    <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <h3 className="text-2xl font-bold">{message.name}</h3>
+                        <p className="mt-1 text-sm text-white/55">{message.email}</p>
+                        <p className="mt-1 text-sm text-white/45">
+                          {message.createdAt?.toDate ? message.createdAt.toDate().toLocaleString() : 'Pending sync'}
+                        </p>
+                      </div>
+                      <div className="inline-flex self-start rounded-full border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-orange-300">
+                        {message.status || 'new'}
+                      </div>
+                    </div>
+                    <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+                      <div className="rounded-[1.5rem] border border-white/10 bg-[rgba(9,9,11,0.6)] p-5 backdrop-blur-md">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">Customer Message</p>
+                        <h4 className="mt-3 text-lg font-bold">{message.subject}</h4>
+                        <p className="mt-4 text-sm leading-7 text-white/75">{message.message}</p>
+                      </div>
+                      <div className="rounded-[1.5rem] border border-white/10 bg-[rgba(9,9,11,0.6)] p-5 backdrop-blur-md">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">Admin Reply</p>
+                        {message.adminReply && (
+                          <div className="mt-3 rounded-[1.25rem] border border-white/10 bg-[rgba(39,39,42,0.72)] p-4 text-sm leading-7 text-white/75">
+                            {message.adminReply}
+                          </div>
+                        )}
+                        <div className="mt-4">
+                          <TextArea
+                            label={message.adminReply ? 'Update reply' : 'Reply message'}
+                            value={replyDrafts[message.id] ?? message.adminReply ?? ''}
+                            onChange={(value) => setReplyDrafts((current) => ({ ...current, [message.id]: value }))}
+                          />
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => saveContactReply(message.id)}
+                            disabled={busyAction === `message-${message.id}`}
+                            className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-black disabled:opacity-60"
+                          >
+                            <Reply size={14} />
+                            {busyAction === `message-${message.id}` ? 'Sending Reply...' : 'Send Reply'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDoc('contacts', message.id, 'customer message')}
+                            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white"
+                          >
+                            <Trash2 size={14} />
+                            Delete Message
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-8 text-center backdrop-blur-xl">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">Inbox Is Clear</p>
+                  <h3 className="mt-3 text-3xl font-black tracking-tight">No customer messages yet</h3>
+                  <p className="mt-3 text-white/55">When someone sends a message from Contact Us, it will appear here immediately.</p>
+                </div>
+              )}
             </div>
           )}
         </div>
