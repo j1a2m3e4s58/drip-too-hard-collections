@@ -22,6 +22,21 @@ const TrackOrder = () => {
     return 'text-yellow-300';
   }, [result]);
 
+  const timelineSteps = useMemo(() => {
+    if (!result) return [];
+
+    const isDelivered = result.status === 'Delivered';
+    const isProcessing = result.status === 'Processing' || result.status === 'Shipped' || isDelivered;
+    const paymentReviewed = (result.paymentStatus && result.paymentStatus !== 'Pending') || result.paymentProofStatus === 'Received' || result.paymentProofStatus === 'Reviewed';
+
+    return [
+      { label: 'Placed', active: true },
+      { label: 'Payment Review', active: Boolean(paymentReviewed) || result.paymentMethod === 'Pay on Delivery' },
+      { label: 'Processing', active: isProcessing },
+      { label: 'Delivered', active: isDelivered },
+    ];
+  }, [result]);
+
   useEffect(() => {
     const tracking = searchParams.get('tracking') || '';
     const phone = searchParams.get('phone') || '';
@@ -217,6 +232,15 @@ const TrackOrder = () => {
                     <div className="rounded-full border border-white/10 bg-black/40 px-4 py-2 text-sm font-semibold text-white/70">
                       {result.trackingCode || 'Tracking code pending'}
                     </div>
+                  </div>
+                  <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    {timelineSteps.map((step, index) => (
+                      <div key={step.label} className="relative overflow-hidden border border-white/10 bg-[rgba(39,39,42,0.58)] p-3.5 backdrop-blur-sm">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/40">Step {index + 1}</p>
+                        <p className={`mt-2 text-sm font-black uppercase tracking-wide ${step.active ? 'text-orange-400' : 'text-white/45'}`}>{step.label}</p>
+                        <div className={`mt-3 h-1 w-full ${step.active ? 'bg-orange-500' : 'bg-white/10'}`} />
+                      </div>
+                    ))}
                   </div>
                   <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <InfoTile icon={PackageCheck} label="Payment" value={result.paymentStatus || 'Pending'} />

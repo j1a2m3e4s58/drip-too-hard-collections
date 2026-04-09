@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowRight, Clock, MapPin, ShoppingBag, Truck, Zap } from 'lucide-react';
@@ -29,7 +29,8 @@ const Home = () => {
   const [settings, setSettings] = useState<StoreSettings>({ id: 'settings', ...defaultStoreSettings });
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
-  const [heroPointerStart, setHeroPointerStart] = useState<number | null>(null);
+  const heroGestureStartRef = useRef<number | null>(null);
+  const heroGestureMovedRef = useRef(false);
 
   useEffect(() => {
     const unsubFeatured = onSnapshot(query(collection(db, 'products'), where('featured', '==', true), limit(4)), (snap) => {
@@ -154,45 +155,60 @@ const Home = () => {
     );
   };
 
-  const handleHeroPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+  const startHeroGesture = (clientX: number) => {
     if (!hero) {
       return;
     }
 
-    setHeroPointerStart(event.clientX);
+    heroGestureStartRef.current = clientX;
+    heroGestureMovedRef.current = false;
   };
 
-  const handleHeroPointerEnd = (event: React.PointerEvent<HTMLElement>) => {
-    if (!hero || heroPointerStart === null) {
+  const finishHeroGesture = (clientX: number, target: EventTarget | null) => {
+    if (!hero || heroGestureStartRef.current === null) {
       return;
     }
 
-    const deltaX = event.clientX - heroPointerStart;
-    const interactiveTarget = (event.target as HTMLElement).closest('a, button, input, select, textarea');
+    const deltaX = clientX - heroGestureStartRef.current;
+    const interactiveTarget = target instanceof HTMLElement ? target.closest('a, button, input, select, textarea') : null;
+
+    if (Math.abs(deltaX) >= 12) {
+      heroGestureMovedRef.current = true;
+    }
 
     if (deltaX <= -60) {
       stepHero('next');
     } else if (deltaX >= 60) {
       stepHero('prev');
-    } else if (!interactiveTarget) {
+    } else if (!interactiveTarget && !heroGestureMovedRef.current) {
       navigate(getHeroTarget(hero));
     }
 
-    setHeroPointerStart(null);
+    heroGestureStartRef.current = null;
+    heroGestureMovedRef.current = false;
   };
 
-  const clearHeroPointer = () => {
-    setHeroPointerStart(null);
+  const clearHeroGesture = () => {
+    heroGestureStartRef.current = null;
+    heroGestureMovedRef.current = false;
   };
 
   return (
     <div className="bg-black text-white">
       <section
         className="relative min-h-[92svh] md:min-h-screen overflow-hidden"
-        onPointerDown={handleHeroPointerDown}
-        onPointerUp={handleHeroPointerEnd}
-        onPointerCancel={clearHeroPointer}
-        onPointerLeave={clearHeroPointer}
+        onMouseDown={(event) => startHeroGesture(event.clientX)}
+        onMouseUp={(event) => finishHeroGesture(event.clientX, event.target)}
+        onMouseLeave={clearHeroGesture}
+        onTouchStart={(event) => startHeroGesture(event.touches[0]?.clientX ?? 0)}
+        onTouchMove={(event) => {
+          const nextX = event.touches[0]?.clientX;
+          if (heroGestureStartRef.current !== null && typeof nextX === 'number' && Math.abs(nextX - heroGestureStartRef.current) >= 12) {
+            heroGestureMovedRef.current = true;
+          }
+        }}
+        onTouchEnd={(event) => finishHeroGesture(event.changedTouches[0]?.clientX ?? heroGestureStartRef.current ?? 0, event.target)}
+        onTouchCancel={clearHeroGesture}
       >
         <div className="absolute inset-0 bg-black" />
         {hero?.image ? (
@@ -214,7 +230,7 @@ const Home = () => {
         <div className="relative z-10 flex min-h-[92svh] md:min-h-screen items-start px-5 pb-28 pt-24 sm:px-8 md:items-center md:px-10 md:py-24 lg:px-16 xl:px-20">
           <div className="max-w-3xl rounded-[0rem] border-0 bg-transparent p-0 backdrop-blur-none md:rounded-[2rem] md:border md:border-white/10 md:bg-black/35 md:p-10 md:backdrop-blur-md">
             {hero ? (
-              <motion.div key={hero.id} initial={{ opacity: 0, x: -35 }} animate={{ opacity: 1, x: 0 }} className="max-w-3xl">
+              <motion.div key={hero.id} initial={{ opacity: 0, x: -35 }} animate={{ opacity: 1, x: 0 }} className="max-w-3xl" style={{ touchAction: 'pan-y' }}>
                 <span className="mb-4 block text-xs font-bold uppercase tracking-[0.35em] text-orange-500">{hero.eyebrow || settings.announcementText}</span>
                 <h1 className="mb-4 max-w-[7ch] text-[3rem] font-black uppercase italic leading-[0.92] tracking-tighter sm:text-[4.3rem] md:mb-6 md:max-w-none md:text-7xl xl:text-8xl">{hero.title}</h1>
                 <p className="mb-7 max-w-[18rem] text-[15px] leading-7 text-white/75 sm:max-w-[22rem] sm:text-lg md:mb-10 md:max-w-2xl">{hero.subtitle || settings.homepageDescription}</p>
@@ -381,10 +397,10 @@ const Home = () => {
       </section>
 
       <section className="bg-white py-12 text-black">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_auto] lg:items-center lg:px-8">
           <div><h4 className="font-black uppercase">Delivery Zones</h4><p className="text-sm opacity-60">Customers only see active delivery zones managed from the admin panel.</p></div>
-            <div className="flex flex-wrap gap-3">{deliveryZones.map((item) => <div key={item.id} className="rounded-full bg-black px-5 py-3 text-xs font-bold uppercase tracking-widest text-white">{item.name}: {formatGhanaCedis(item.fee)}</div>)}</div>
-          <Link to="/payment-delivery" className="bg-black px-8 py-4 text-xs font-bold uppercase tracking-widest text-white hover:bg-orange-500">Learn More</Link>
+          <div className="flex flex-wrap gap-3">{deliveryZones.map((item) => <div key={item.id} className="rounded-full bg-black px-5 py-3 text-xs font-bold uppercase tracking-widest text-white">{item.name}: {formatGhanaCedis(item.fee)}</div>)}</div>
+          <Link to="/payment-delivery" className="inline-flex items-center justify-center bg-black px-8 py-4 text-xs font-bold uppercase tracking-widest text-white hover:bg-orange-500">Learn More</Link>
         </div>
       </section>
     </div>
@@ -396,3 +412,4 @@ const ValueCard = ({ icon: Icon, title, text }: { icon: React.ElementType; title
 );
 
 export default Home;
+

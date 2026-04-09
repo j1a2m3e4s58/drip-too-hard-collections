@@ -11,10 +11,15 @@ import {
   Minus,
   MessageSquare,
   User,
-  Heart
+  Heart,
+  Expand,
+  X,
+  ChevronLeft,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ProductDetailSkeleton } from '../components/Skeleton';
+import ProductCard from '../components/ProductCard';
 import { 
   doc, 
   getDoc, 
@@ -31,17 +36,21 @@ import { Product, Review } from '../types';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
-import { findImportedCatalogProduct } from '../lib/importedCatalog';
+import { findImportedCatalogProduct, mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
+import { getRecentlyViewedIds, pushRecentlyViewedId } from '../lib/customerExperience';
 import { cn, formatGhanaCedis } from '../lib/utils';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('');
   const [activeImage, setActiveImage] = useState('');
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryZoomed, setGalleryZoomed] = useState(false);
   const [user] = useAuthState(auth);
   const { wishlist, toggleWishlist } = useWishlist();
   const { addToCartQuantity } = useCart();
@@ -79,7 +88,15 @@ const ProductDetail = () => {
       setReviews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Review[]);
     });
 
-    return () => unsubReviews();
+    const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
+      const next = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() })) as Product[];
+      setCatalogProducts(mergeWithImportedCatalogProducts(next));
+    });
+
+    return () => {
+      unsubReviews();
+      unsubProducts();
+    };
   }, [id]);
 
   useEffect(() => {
@@ -99,6 +116,11 @@ const ProductDetail = () => {
     const gallery = [product.image, ...(product.galleryImages || [])].filter(Boolean);
     setActiveImage(gallery[0] || '');
   }, [product]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    pushRecentlyViewedId(product.id);
+  }, [product?.id]);
 
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,6 +173,14 @@ const ProductDetail = () => {
   const isOutOfStock = !product.inStock || (product.stockCount !== undefined && product.stockCount === 0);
   const maxSelectableQuantity = product.stockCount !== undefined && product.stockCount > 0 ? product.stockCount : 99;
   const productGallery = Array.from(new Set([product.image, ...(product.galleryImages || [])].filter(Boolean)));
+  const recommendedProducts = catalogProducts
+    .filter((item) => item.id !== product.id && item.category === product.category)
+    .slice(0, 4);
+  const recentlyViewedProducts = getRecentlyViewedIds()
+    .filter((recentId) => recentId !== product.id)
+    .map((recentId) => catalogProducts.find((item) => item.id === recentId))
+    .filter((item): item is Product => Boolean(item))
+    .slice(0, 4);
 
   return (
     <div className="bg-black text-white min-h-screen pt-24 pb-12">
@@ -172,12 +202,22 @@ const ProductDetail = () => {
             className="space-y-3 md:space-y-4"
           >
             <div className="relative aspect-[3/4] bg-zinc-900 overflow-hidden">
-              <img
-                src={activeImage || product.image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+              <button
+                type="button"
+                onClick={() => setIsGalleryOpen(true)}
+                className="relative block h-full w-full text-left"
+              >
+                <img
+                  src={activeImage || product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <span className="absolute right-3 top-3 inline-flex items-center gap-2 border border-white/10 bg-black/55 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white backdrop-blur-md">
+                  <Expand size={14} />
+                  Fullscreen
+                </span>
+              </button>
               {hasFlashSale && (
               <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1.5 text-[10px] sm:px-4 sm:py-2 sm:text-xs font-black uppercase tracking-widest animate-pulse">
                   Flash Sale
@@ -276,6 +316,21 @@ const ProductDetail = () => {
               )}
             </div>
 
+            <div className="mb-8 grid grid-cols-2 gap-3 text-[10px] font-bold uppercase tracking-[0.18em] sm:grid-cols-4">
+              <div className="border border-white/10 bg-zinc-900 px-3 py-3 text-white/75">
+                Delivery: 1-3 days
+              </div>
+              <div className="border border-white/10 bg-zinc-900 px-3 py-3 text-white/75">
+                Pay: MoMo / Bank
+              </div>
+              <div className="border border-white/10 bg-zinc-900 px-3 py-3 text-white/75">
+                Size Help: Available
+              </div>
+              <div className="border border-white/10 bg-zinc-900 px-3 py-3 text-white/75">
+                Stock Left: {product.stockCount ?? 'Open'}
+              </div>
+            </div>
+
             {/* Actions */}
             <div className="space-y-6 mb-12">
               {!!product.sizeOptions?.length && (
@@ -356,6 +411,35 @@ const ProductDetail = () => {
             </div>
           </motion.div>
         </div>
+
+        {(recommendedProducts.length > 0 || recentlyViewedProducts.length > 0) && (
+          <section className="mt-20 space-y-14 border-t border-white/5 pt-16">
+            {recommendedProducts.length > 0 && (
+              <div>
+                <div className="mb-8 flex items-center gap-3">
+                  <Sparkles size={18} className="text-orange-400" />
+                  <h2 className="text-3xl font-black uppercase italic tracking-tighter">Complete The Fit</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8">
+                  {recommendedProducts.map((item) => (
+                    <ProductCard key={item.id} product={item} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {recentlyViewedProducts.length > 0 && (
+              <div>
+                <h2 className="mb-8 text-3xl font-black uppercase italic tracking-tighter">Recently Viewed</h2>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8">
+                  {recentlyViewedProducts.map((item) => (
+                    <ProductCard key={item.id} product={item} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Reviews Section */}
         <section className="mt-24 border-t border-white/5 pt-24">
@@ -468,6 +552,108 @@ const ProductDetail = () => {
           </div>
         </section>
       </div>
+
+      <AnimatePresence>
+        {isGalleryOpen && (
+          <>
+            <motion.button
+              type="button"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setIsGalleryOpen(false);
+                setGalleryZoomed(false);
+              }}
+              className="fixed inset-0 z-[90] bg-black/88 backdrop-blur-sm"
+              aria-label="Close gallery"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              className="fixed inset-0 z-[91] flex flex-col"
+            >
+              <div className="flex items-center justify-between px-4 py-4 sm:px-6">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-400">Fullscreen Gallery</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGalleryZoomed((current) => !current)}
+                    className="border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white"
+                  >
+                    {galleryZoomed ? 'Fit to screen' : 'Zoom'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsGalleryOpen(false);
+                      setGalleryZoomed(false);
+                    }}
+                    className="border border-white/10 bg-zinc-900 p-2 text-white"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-1 items-center justify-center px-4 pb-4 sm:px-6">
+                <div className="relative flex h-full w-full max-w-5xl items-center justify-center overflow-hidden bg-zinc-950">
+                  <img
+                    src={activeImage || product.image}
+                    alt={product.name}
+                    className={cn(
+                      'max-h-full max-w-full object-contain transition-transform duration-300',
+                      galleryZoomed && 'scale-[1.45] cursor-zoom-out',
+                    )}
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              </div>
+              {productGallery.length > 1 && (
+                <div className="flex items-center justify-center gap-3 px-4 pb-6 sm:px-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentIndex = productGallery.indexOf(activeImage);
+                      const nextIndex = currentIndex <= 0 ? productGallery.length - 1 : currentIndex - 1;
+                      setActiveImage(productGallery[nextIndex]);
+                    }}
+                    className="border border-white/10 bg-zinc-900 p-3 text-white"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <div className="flex max-w-[70vw] gap-2 overflow-x-auto">
+                    {productGallery.map((image, index) => (
+                      <button
+                        key={`${image}-${index}-fullscreen`}
+                        type="button"
+                        onClick={() => setActiveImage(image)}
+                        className={cn(
+                          'h-16 w-16 shrink-0 overflow-hidden border bg-zinc-900',
+                          activeImage === image ? 'border-orange-500' : 'border-white/10',
+                        )}
+                      >
+                        <img src={image} alt={`${product.name} thumb ${index + 1}`} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentIndex = productGallery.indexOf(activeImage);
+                      const nextIndex = currentIndex >= productGallery.length - 1 ? 0 : currentIndex + 1;
+                      setActiveImage(productGallery[nextIndex]);
+                    }}
+                    className="border border-white/10 bg-zinc-900 p-3 text-white"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

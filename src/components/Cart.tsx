@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { useCart } from '../hooks/useCart';
 import { Link } from 'react-router-dom';
@@ -12,6 +12,7 @@ interface CartProps {
 
 const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
   const { cart, removeFromCart, updateQuantity, total, itemCount } = useCart();
+  const dragControls = useDragControls();
 
   return (
     <AnimatePresence>
@@ -33,9 +34,12 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             drag="x"
+            dragListener={false}
             dragDirectionLock
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={{ left: 0, right: 0.12 }}
+            dragControls={dragControls}
+            dragMomentum={false}
             whileDrag={{ cursor: 'grabbing' }}
             onDragEnd={(_, info) => {
               if (info.offset.x > 110 || info.velocity.x > 700) {
@@ -44,18 +48,35 @@ const Cart: React.FC<CartProps> = ({ isOpen, onClose }) => {
             }}
             className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-zinc-950 z-[70] shadow-2xl border-l border-white/10 flex flex-col"
           >
-            <div className="flex justify-center border-b border-white/5 py-2 md:hidden">
-              <div className="h-1.5 w-14 rounded-full bg-white/20" />
+            <div
+              className="flex cursor-grab justify-center border-b border-white/5 bg-zinc-950/95 py-3 md:hidden"
+              style={{ touchAction: 'none' }}
+              onPointerDown={(event) => dragControls.start(event)}
+            >
+              <div className="h-1.5 w-14 rounded-full bg-white/35" />
             </div>
             {/* Header */}
-            <div className="p-6 border-b border-white/10 flex justify-between items-center">
+            <div
+              className="border-b border-white/10 bg-zinc-950/95 px-5 py-4 text-white md:px-6 md:py-6"
+              style={{ touchAction: 'none' }}
+              onPointerDown={(event) => {
+                if (window.innerWidth < 768) {
+                  dragControls.start(event);
+                }
+              }}
+            >
+              <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <ShoppingBag size={20} className="text-orange-500" />
-                <h2 className="text-xl font-black uppercase italic tracking-tighter">Your Bag ({itemCount})</h2>
+                <h2 className="text-lg font-black uppercase italic tracking-tighter text-white md:text-xl">Your Bag ({itemCount})</h2>
               </div>
-              <button onClick={onClose} className="p-2 hover:text-orange-500 transition-colors">
-                <X size={24} />
+              <button
+                onClick={onClose}
+                className="flex h-10 w-10 items-center justify-center border border-white/10 bg-black/60 text-white hover:border-orange-500 hover:text-orange-500 transition-colors"
+              >
+                <X size={22} />
               </button>
+              </div>
             </div>
 
             {/* Items */}

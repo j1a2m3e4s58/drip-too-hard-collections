@@ -279,23 +279,23 @@ const Navbar = () => {
             {/* Mobile Menu Button */}
             <div
               className={cn(
-                'md:hidden flex items-center gap-1 pr-2',
+                'md:hidden flex items-center gap-1.5 pr-2',
                 location.pathname === '/collections' && 'mr-5'
               )}
             >
-              <button onClick={() => setIsSearchOpen(true)} className="shrink-0 p-0.5 text-white/70">
-                <Search size={15} />
+              <button onClick={() => setIsSearchOpen(true)} className="shrink-0 p-0.5 text-white/80">
+                <Search size={17} />
               </button>
-              <Link to="/wishlist" className="relative shrink-0 p-0.5 text-white/70">
-                <Heart size={15} />
+              <Link to="/wishlist" className="relative shrink-0 p-0.5 text-white/80">
+                <Heart size={17} />
                 {wishlist.length > 0 && (
                   <span className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                     {wishlist.length}
                   </span>
                 )}
               </Link>
-              <button onClick={() => setIsCartOpen(true)} className="relative shrink-0 p-0.5 text-white/70">
-                <ShoppingBag size={15} />
+              <button onClick={() => setIsCartOpen(true)} className="relative shrink-0 p-0.5 text-white/80">
+                <ShoppingBag size={17} />
                 {itemCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-orange-500 text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                     {itemCount}
@@ -306,7 +306,7 @@ const Navbar = () => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="shrink-0 pl-1 pr-0.5 py-0.5 text-white transition-colors hover:text-orange-500"
               >
-                {isOpen ? <X size={18} /> : <Menu size={18} />}
+                {isOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
             </div>
           </div>

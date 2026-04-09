@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import MobileBottomNav from './components/MobileBottomNav';
+import FloatingWhatsAppButton from './components/FloatingWhatsAppButton';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
@@ -71,6 +73,8 @@ export default function App() {
             <Route path="/login" element={<Login />} />
           </Routes>
         </main>
+        <FloatingWhatsAppButton />
+        <MobileBottomNav />
         <Footer />
       </div>
     </Router>

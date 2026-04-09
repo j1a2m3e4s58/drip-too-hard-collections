@@ -9,9 +9,10 @@ import { cn, formatGhanaCedis } from '../lib/utils';
 
 interface ProductCardProps {
   product: Product;
+  onQuickView?: (product: Product) => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
   const isLowStock = product.stockCount !== undefined && product.stockCount > 0 && product.stockCount < 5;
   const hasFlashSale = product.flashSalePrice && product.flashSalePrice > 0;
   const { wishlist, toggleWishlist } = useWishlist();
@@ -79,7 +80,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
         {/* Hover Overlay */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto flex flex-col items-center gap-3">
             {product.inStock && (product.stockCount === undefined || product.stockCount > 0) ? (
               <button 
                 onClick={(e) => {
@@ -92,10 +93,21 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 <ShoppingBag size={14} />
               </button>
             ) : (
-              <div className="bg-zinc-800 text-white/50 px-6 py-3 text-xs font-bold uppercase tracking-widest transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                Sold Out
-              </div>
-            )}
+                <div className="bg-zinc-800 text-white/50 px-6 py-3 text-xs font-bold uppercase tracking-widest transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                  Sold Out
+                </div>
+              )}
+              {onQuickView && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onQuickView(product);
+                  }}
+                  className="border border-white/20 bg-black/70 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white transition-all duration-300 hover:border-orange-500 hover:text-orange-400"
+                >
+                  Quick View
+                </button>
+              )}
           </div>
         </div>
       </div>
@@ -123,6 +135,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             )}
           </div>
         </div>
+        {onQuickView && (
+          <button
+            type="button"
+            onClick={() => onQuickView(product)}
+            className="mt-2 inline-flex md:hidden border border-white/10 bg-zinc-900 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/75 transition-colors hover:border-orange-500 hover:text-orange-400"
+          >
+            Quick View
+          </button>
+        )}
       </div>
     </motion.div>
   );

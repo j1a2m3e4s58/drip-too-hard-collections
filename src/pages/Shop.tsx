@@ -1,10 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Filter, ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Search, Sparkles } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import ProductCard from '../components/ProductCard';
+import ProductQuickViewModal from '../components/ProductQuickViewModal';
 import { ProductCardSkeleton } from '../components/Skeleton';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Product } from '../types';
 import { mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
@@ -16,17 +17,19 @@ const Shop = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('Newest');
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const prods = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      const prods = snapshot.docs.map((docItem) => ({
+        id: docItem.id,
+        ...docItem.data(),
       })) as Product[];
       setProducts(mergeWithImportedCatalogProducts(prods));
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -38,24 +41,84 @@ const Shop = () => {
     setActiveCategory(incomingCategory);
   }, [searchParams]);
 
-  const categories = ['All', ...Array.from(new Set(products.map((product) => product.category).filter(Boolean)))];
+  const categories = ['All', ...Array.from(new Set(products.map((product) => product.category).filter(Boolean))) as string[]];
   const linkedIds = (searchParams.get('ids') || '')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
 
-  const filteredProducts = products.filter(product => {
+  const filteredProducts = products.filter((product) => {
+    const normalizedQuery = searchQuery.toLowerCase();
     const matchesCategory = activeCategory === 'All' || product.category === activeCategory;
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      product.name.toLowerCase().includes(normalizedQuery) ||
+      product.category.toLowerCase().includes(normalizedQuery) ||
+      product.description.toLowerCase().includes(normalizedQuery);
     const matchesLinkedIds = !linkedIds.length || linkedIds.includes(product.id);
     return matchesCategory && matchesSearch && matchesLinkedIds;
   });
 
+  const sortedProducts = useMemo(() => {
+    const next = [...filteredProducts];
+
+    switch (sortBy) {
+      case 'Price: Low to High':
+        next.sort((a, b) => (a.flashSalePrice || a.price) - (b.flashSalePrice || b.price));
+        break;
+      case 'Price: High to Low':
+        next.sort((a, b) => (b.flashSalePrice || b.price) - (a.flashSalePrice || a.price));
+        break;
+      case 'Best Sellers':
+        next.sort((a, b) => Number(Boolean(b.isBestseller)) - Number(Boolean(a.isBestseller)));
+        break;
+      default:
+        break;
+    }
+
+    return next;
+  }, [filteredProducts, sortBy]);
+
+  const searchSuggestions = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (normalizedQuery.length < 2) {
+      return [];
+    }
+
+    const productMatches = products
+      .filter(
+        (product) =>
+          product.name.toLowerCase().includes(normalizedQuery) ||
+          product.category.toLowerCase().includes(normalizedQuery),
+      )
+      .slice(0, 5)
+      .map((product) => ({
+        key: `product-${product.id}`,
+        label: product.name,
+        meta: product.category,
+        action: () => setSearchQuery(product.name),
+      }));
+
+    const categoryMatches = categories
+      .filter((category) => category !== 'All' && category.toLowerCase().includes(normalizedQuery))
+      .slice(0, 3)
+      .map((category) => ({
+        key: `category-${category}`,
+        label: category,
+        meta: 'Category',
+        action: () => {
+          setActiveCategory(category);
+          setSearchQuery('');
+        },
+      }));
+
+    return [...productMatches, ...categoryMatches].slice(0, 6);
+  }, [categories, products, searchQuery]);
+
   if (loading) {
     return (
-      <div className="bg-black text-white min-h-screen pt-24 md:pt-32 pb-16 md:pb-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-8 md:gap-y-12">
+      <div className="min-h-screen bg-black pb-24 pt-24 text-white md:pb-24 md:pt-32">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:gap-y-12 lg:grid-cols-4">
             {[...Array(8)].map((_, i) => (
               <ProductCardSkeleton key={i} />
             ))}
@@ -66,12 +129,11 @@ const Shop = () => {
   }
 
   return (
-    <div className="bg-black text-white min-h-screen pt-24 pb-16 md:pb-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+    <div className="min-h-screen bg-black pb-24 pt-24 text-white md:pb-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 md:mb-12">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black uppercase tracking-tighter italic mb-3 md:mb-4">The Shop</h1>
-          <p className="text-sm sm:text-base text-white/50 max-w-2xl leading-7">
+          <h1 className="mb-3 text-3xl font-black uppercase italic tracking-tighter sm:text-4xl md:mb-4 md:text-5xl">The Shop</h1>
+          <p className="max-w-2xl text-sm leading-7 text-white/50 sm:text-base">
             Browse our full collection of premium streetwear. Filter by category or search for your next favorite piece.
           </p>
           {(linkedIds.length > 0 || searchQuery) && (
@@ -81,15 +143,13 @@ const Shop = () => {
           )}
         </div>
 
-        {/* Filters & Search */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 md:gap-6 mb-8 md:mb-12 border-b border-white/10 pb-6 md:pb-8">
-          {/* Categories */}
+        <div className="mb-8 flex flex-col items-start gap-5 border-b border-white/10 pb-6 md:mb-12 md:gap-6 md:pb-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 text-[10px] sm:px-6 sm:text-xs font-bold uppercase tracking-widest transition-all ${
+                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-all sm:px-6 sm:text-xs ${
                   activeCategory === cat
                     ? 'bg-orange-500 text-black'
                     : 'bg-zinc-900 text-white hover:bg-white hover:text-black'
@@ -100,8 +160,7 @@ const Shop = () => {
             ))}
           </div>
 
-          {/* Search & Sort */}
-          <div className="flex flex-col sm:flex-row gap-3 md:gap-4 w-full lg:w-auto">
+          <div className="flex w-full flex-col gap-3 md:gap-4 sm:flex-row lg:w-auto">
             <div className="relative flex-grow sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={18} />
               <input
@@ -109,43 +168,68 @@ const Shop = () => {
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-900 border border-white/10 px-10 py-3 text-sm focus:outline-none focus:border-orange-500 transition-colors"
+                className="w-full border border-white/10 bg-zinc-900 px-10 py-3 text-sm transition-colors focus:border-orange-500 focus:outline-none"
               />
+              {searchSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 border border-white/10 bg-zinc-950 shadow-2xl">
+                  {searchSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.key}
+                      type="button"
+                      onClick={suggestion.action}
+                      className="flex w-full items-center justify-between border-b border-white/5 px-4 py-3 text-left text-sm text-white/80 transition-colors last:border-b-0 hover:bg-zinc-900 hover:text-white"
+                    >
+                      <span>{suggestion.label}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">{suggestion.meta}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="relative">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none bg-zinc-900 border border-white/10 px-4 sm:px-6 py-3 pr-10 text-[11px] sm:text-sm font-bold uppercase tracking-widest focus:outline-none focus:border-orange-500 transition-colors cursor-pointer w-full"
+                className="w-full cursor-pointer appearance-none border border-white/10 bg-zinc-900 px-4 py-3 pr-10 text-[11px] font-bold uppercase tracking-widest transition-colors focus:border-orange-500 focus:outline-none sm:px-6 sm:text-sm"
               >
                 <option>Newest</option>
                 <option>Price: Low to High</option>
                 <option>Price: High to Low</option>
+                <option>Best Sellers</option>
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" size={16} />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
             </div>
           </div>
         </div>
 
-        {/* Product Grid */}
-        {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-8 md:gap-y-12">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+        <div className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+          <Sparkles size={14} className="text-orange-400" />
+          <span>Quick view lets customers preview products without leaving the grid</span>
+        </div>
+
+        {sortedProducts.length > 0 ? (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12 lg:grid-cols-4">
+            {sortedProducts.map((product) => (
+              <ProductCard key={product.id} product={product} onQuickView={setQuickViewProduct} />
             ))}
           </div>
         ) : (
           <div className="py-24 text-center">
-            <p className="text-white/40 text-lg">No products found matching your criteria.</p>
+            <p className="text-lg text-white/40">No products found matching your criteria.</p>
             <button
-              onClick={() => { setActiveCategory('All'); setSearchQuery(''); }}
-              className="mt-4 text-orange-500 font-bold uppercase tracking-widest hover:text-white transition-colors"
+              onClick={() => {
+                setActiveCategory('All');
+                setSearchQuery('');
+              }}
+              className="mt-4 font-bold uppercase tracking-widest text-orange-500 transition-colors hover:text-white"
             >
               Clear all filters
             </button>
           </div>
         )}
       </div>
+
+      <ProductQuickViewModal product={quickViewProduct} onClose={() => setQuickViewProduct(null)} />
     </div>
   );
 };
