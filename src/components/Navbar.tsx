@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatGhanaCedis } from '../lib/utils';
 import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import Cart from './Cart';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -45,6 +46,7 @@ const Navbar = () => {
   const location = useLocation();
   const { wishlist } = useWishlist();
   const { itemCount } = useCart();
+  const { user } = useAuth();
   const longPressTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -276,6 +278,34 @@ const Navbar = () => {
                   </span>
                 )}
               </button>
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/profile"
+                    className="border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/85 transition-colors hover:border-orange-500 hover:text-orange-400"
+                  >
+                    My Account
+                  </Link>
+                  <span className="border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
+                    Member Offer DTHC10
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/login"
+                    className="border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/85 transition-colors hover:border-orange-500 hover:text-orange-400"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="bg-orange-500 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-black transition-colors hover:bg-white"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -337,6 +367,39 @@ const Navbar = () => {
                     {link.name}
                   </Link>
                 ))}
+                <div className="pt-3 space-y-3">
+                  {user ? (
+                    <>
+                      <Link
+                        to="/profile"
+                        onClick={() => setIsOpen(false)}
+                        className="block border border-white/10 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-orange-500 hover:text-orange-400"
+                      >
+                        My Account
+                      </Link>
+                      <div className="border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-orange-400">
+                        Member Offer: DTHC10
+                      </div>
+                    </>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      <Link
+                        to="/login"
+                        onClick={() => setIsOpen(false)}
+                        className="border border-white/10 px-4 py-3 text-center text-sm font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-orange-500 hover:text-orange-400"
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        to="/signup"
+                        onClick={() => setIsOpen(false)}
+                        className="bg-orange-500 px-4 py-3 text-center text-sm font-black uppercase tracking-[0.18em] text-black transition-colors hover:bg-white"
+                      >
+                        Sign Up
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}

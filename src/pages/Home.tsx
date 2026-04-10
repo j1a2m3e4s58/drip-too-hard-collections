@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, Clock, MapPin, ShoppingBag, Truck, Zap } from 'lucide-react';
+import { ArrowRight, Clock, MapPin, ShoppingBag, Sparkles, Truck, Zap } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ProductCard from '../components/ProductCard';
+import { useAuth } from '../hooks/useAuth';
 import { Collection, DeliveryZone, HeroBanner, Product, StoreSettings } from '../types';
 import { defaultCollections, defaultDeliveryZones, defaultHeroBanners, defaultStoreSettings, isValidHeroBannerContent, sanitizeAdminManagedImage, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import { importedCatalogProducts } from '../lib/importedCatalog';
@@ -21,6 +22,7 @@ const heroAnimationMap: Record<string, { initial: { opacity: number; x?: number;
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
   const [heroBanners, setHeroBanners] = useState<HeroBanner[]>(defaultHeroBanners);
@@ -239,6 +241,17 @@ const Home = () => {
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
                   <Link to={getHeroTarget(hero)} className="inline-flex items-center justify-center gap-2 bg-orange-500 px-6 py-4 text-sm font-black uppercase tracking-widest text-black hover:bg-white md:px-8"><span>{hero.ctaText || 'Shop Now'}</span><ShoppingBag size={18} /></Link>
                   <Link to="/collections" className="inline-flex items-center justify-center gap-2 border border-white/30 bg-black/20 px-6 py-4 text-sm font-black uppercase tracking-widest hover:bg-white hover:text-black md:px-8"><span>View Collections</span><ArrowRight size={18} /></Link>
+                  {user ? (
+                    <Link to="/profile" className="inline-flex items-center justify-center gap-2 border border-orange-500/35 bg-orange-500/10 px-6 py-4 text-sm font-black uppercase tracking-widest text-orange-400 hover:bg-orange-500 hover:text-black md:px-8">
+                      <span>Member Offer DTHC10</span>
+                      <Sparkles size={18} />
+                    </Link>
+                  ) : (
+                    <Link to="/signup" className="inline-flex items-center justify-center gap-2 border border-orange-500/35 bg-orange-500/10 px-6 py-4 text-sm font-black uppercase tracking-widest text-orange-400 hover:bg-orange-500 hover:text-black md:px-8">
+                      <span>Join & Get DTHC10</span>
+                      <Sparkles size={18} />
+                    </Link>
+                  )}
                 </div>
                 <div className="mt-6 flex gap-3 md:mt-8">
                   {heroSlides.map((slide, index) => (

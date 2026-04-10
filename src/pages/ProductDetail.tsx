@@ -76,10 +76,15 @@ const ProductDetail = () => {
   const isInWishlist = wishlist.includes(id || '');
   
   // Review Form State
-  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewerName, setReviewerName] = useState('');
   const [rating, setRating] = useState(5);
+  const [appRating, setAppRating] = useState(5);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState('');
+  const reviewsSectionRef = React.useRef<HTMLElement | null>(null);
+  const reviewFormRef = React.useRef<HTMLDivElement | null>(null);
+  const reviewTextareaRef = React.useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -185,24 +190,33 @@ const ProductDetail = () => {
 
   const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !id || !comment.trim()) return;
+    if (!id || !comment.trim()) return;
+
+    const resolvedName = user?.displayName?.trim() || reviewerName.trim() || 'Guest Customer';
 
     setSubmitting(true);
     try {
       await addDoc(collection(db, 'reviews'), {
         productId: id,
-        userId: user.uid,
-        userName: user.displayName || 'Anonymous',
+        productName: product.name,
+        userId: user?.uid || 'guest',
+        userName: resolvedName,
         rating,
+        appRating,
         comment,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        status: 'new',
         approved: true // Auto-approve for now
       });
+      setReviewerName('');
       setComment('');
       setRating(5);
-      setShowReviewForm(false);
+      setAppRating(5);
+      setReviewSuccess('Review sent to admin successfully.');
     } catch (error) {
       console.error("Error adding review:", error);
+      setReviewSuccess('');
     } finally {
       setSubmitting(false);
     }
@@ -243,6 +257,20 @@ const ProductDetail = () => {
     .map((recentId) => catalogProducts.find((item) => item.id === recentId))
     .filter((item): item is Product => Boolean(item))
     .slice(0, 4);
+  const averageRating = reviews.length
+    ? reviews.reduce((total, review) => total + Number(review.rating || 0), 0) / reviews.length
+    : 0;
+  const filledAverageStars = Math.round(averageRating);
+  const averageAppRating = reviews.length
+    ? reviews.reduce((total, review) => total + Number(review.appRating || review.rating || 0), 0) / reviews.length
+    : 0;
+  const filledAppAverageStars = Math.round(averageAppRating);
+  const openReviewArea = () => {
+    reviewsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => {
+      reviewTextareaRef.current?.focus();
+    }, 250);
+  };
 
   return (
     <div className="bg-black text-white min-h-screen pt-24 pb-12">
@@ -327,13 +355,21 @@ const ProductDetail = () => {
               <div className="mb-5 flex items-center space-x-3 sm:space-x-4 md:mb-6">
                 <div className="flex items-center text-orange-500">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={14} fill={i < 4 ? "currentColor" : "none"} />
+                    <Star key={i} size={14} fill={i < filledAverageStars ? "currentColor" : "none"} />
                   ))}
                 </div>
                 <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
-                  {reviews.length} Reviews
+                  {reviews.length} Reviews {reviews.length ? `• ${averageRating.toFixed(1)}/5` : ''}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={openReviewArea}
+                className="mb-5 inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white/80 transition-colors hover:border-orange-500 hover:text-orange-400"
+              >
+                <MessageSquare size={14} />
+                <span>Write Review</span>
+              </button>
 
               <div className="flex items-baseline space-x-4">
                 {hasFlashSale ? (
@@ -526,80 +562,139 @@ const ProductDetail = () => {
         )}
 
         {/* Reviews Section */}
-        <section className="mt-24 border-t border-white/5 pt-24">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
+        <section ref={reviewsSectionRef} className="mt-24 border-t border-white/5 pt-24">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
             <div>
               <h2 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter mb-2">Customer Reviews</h2>
               <div className="flex items-center space-x-3 sm:space-x-4">
                 <div className="flex items-center text-orange-500">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={16} fill={i < 4 ? "currentColor" : "none"} />
+                    <Star key={i} size={16} fill={i < filledAverageStars ? "currentColor" : "none"} />
                   ))}
                 </div>
-                <span className="text-sm text-white/40">Based on {reviews.length} reviews</span>
+                <span className="text-sm text-white/40">
+                  {reviews.length ? `Based on ${reviews.length} reviews • ${averageRating.toFixed(1)} product average` : 'No reviews yet'}
+                </span>
+              </div>
+              <div className="mt-3 flex items-center gap-3 text-white/40">
+                <div className="flex items-center text-orange-500">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={`app-average-${i}`} size={14} fill={i < filledAppAverageStars ? "currentColor" : "none"} />
+                  ))}
+                </div>
+                <span className="text-xs uppercase tracking-widest">
+                  {reviews.length ? `Website/App ${averageAppRating.toFixed(1)}/5` : 'Website/App not rated yet'}
+                </span>
               </div>
             </div>
-            {user ? (
-              <button 
-                onClick={() => setShowReviewForm(!showReviewForm)}
-                className="bg-zinc-900 border border-white/10 px-8 py-4 text-xs font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all flex items-center space-x-2"
-              >
-                <MessageSquare size={16} />
-                <span>{showReviewForm ? 'Cancel Review' : 'Write a Review'}</span>
-              </button>
-            ) : (
-              <p className="text-sm text-white/40 italic">Please sign in to leave a review.</p>
-            )}
+            <button 
+              onClick={openReviewArea}
+              className="bg-zinc-900 border border-white/10 px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all flex items-center space-x-2"
+            >
+              <MessageSquare size={16} />
+              <span>Write Review</span>
+            </button>
           </div>
 
-          <AnimatePresence>
-            {showReviewForm && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden mb-12"
-              >
-                <form onSubmit={handleAddReview} className="max-w-2xl border border-white/10 bg-zinc-900 p-5 sm:p-8">
-                  <div className="mb-6">
-                    <label className="block text-[10px] uppercase tracking-widest font-bold text-white/40 mb-4">Rating</label>
-                    <div className="flex space-x-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setRating(star)}
-                          className={cn(
-                            "transition-colors",
-                            rating >= star ? "text-orange-500" : "text-white/20"
-                          )}
-                        >
-                          <Star size={24} fill={rating >= star ? "currentColor" : "none"} />
-                        </button>
-                      ))}
-                    </div>
+          <div ref={reviewFormRef} className="mb-12 max-w-3xl border border-white/10 bg-zinc-900/75 p-4 sm:p-5">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4 border border-white/10 bg-black/35 px-4 py-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-400">Write Review</p>
+                <h3 className="mt-2 text-lg font-black uppercase italic tracking-tight text-white">Share your experience</h3>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-white/60">
+                  Rate the product, rate the website/app, and send your review straight to admin.
+                </p>
+              </div>
+              <div className="min-w-[160px] border border-white/10 bg-zinc-950 px-4 py-3 text-right">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Overall Product Rating</p>
+                <p className="mt-2 text-2xl font-black text-orange-400">{reviews.length ? averageRating.toFixed(1) : '0.0'}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/35">Website/App {reviews.length ? averageAppRating.toFixed(1) : '0.0'}</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddReview} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-[10px] uppercase tracking-widest font-bold text-white/40">Your Name</label>
+                  <input
+                    value={reviewerName}
+                    onChange={(e) => setReviewerName(e.target.value)}
+                    placeholder={user?.displayName || 'Enter your name'}
+                    className="w-full border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none transition-colors focus:border-orange-500"
+                  />
+                </div>
+                <div className="border border-white/10 bg-black px-4 py-3">
+                  <p className="mb-2 text-[10px] uppercase tracking-widest font-bold text-white/40">Website / App Rating</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={`app-${star}`}
+                        type="button"
+                        onClick={() => setAppRating(star)}
+                        className={cn(
+                          "rounded border px-2 py-2 transition-all",
+                          appRating >= star ? "border-orange-500 bg-orange-500/10 text-orange-500" : "border-white/10 text-white/25 hover:border-orange-500/50 hover:text-orange-400"
+                        )}
+                        aria-label={`Rate website app ${star}`}
+                      >
+                        <Star size={18} fill={appRating >= star ? "currentColor" : "none"} />
+                      </button>
+                    ))}
                   </div>
-                  <div className="mb-6">
-                    <label className="block text-[10px] uppercase tracking-widest font-bold text-white/40 mb-2">Your Review</label>
-                    <textarea
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      required
-                      placeholder="What did you think of the product?"
-                      className="w-full bg-black border border-white/10 p-4 text-sm focus:outline-none focus:border-orange-500 min-h-[120px]"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="bg-orange-500 text-black px-10 py-4 text-xs font-black uppercase tracking-widest hover:bg-white transition-colors disabled:opacity-50"
-                  >
-                    {submitting ? 'Submitting...' : 'Post Review'}
-                  </button>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="border border-white/10 bg-black px-4 py-3">
+                <p className="mb-2 text-[10px] uppercase tracking-widest font-bold text-white/40">Product Rating</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      className={cn(
+                        "rounded border px-2 py-2 transition-all",
+                        rating >= star ? "border-orange-500 bg-orange-500/10 text-orange-500" : "border-white/10 text-white/25 hover:border-orange-500/50 hover:text-orange-400"
+                      )}
+                      aria-label={`Rate product ${star}`}
+                    >
+                      <Star size={18} fill={rating >= star ? "currentColor" : "none"} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[10px] uppercase tracking-widest font-bold text-white/40">Share your experience</label>
+                <textarea
+                  ref={reviewTextareaRef}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  required
+                  placeholder="Tell us what you liked, how it fits, the quality, delivery, and how the app felt to use..."
+                  className="min-h-[110px] w-full border border-white/10 bg-black p-4 text-sm text-white focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-orange-500 px-6 py-3 text-xs font-black uppercase tracking-widest text-black transition-colors hover:bg-white disabled:opacity-50"
+                >
+                  {submitting ? 'Sending Review...' : 'Send Review'}
+                </button>
+                <span className="text-xs uppercase tracking-widest text-white/40">
+                  Product {rating}/5 • App {appRating}/5
+                </span>
+                {reviewSuccess && (
+                  <span className="text-xs uppercase tracking-widest text-emerald-400">
+                    {reviewSuccess}
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {reviews.length > 0 ? (

@@ -20,6 +20,8 @@ import UploadPaymentProof from './pages/UploadPaymentProof';
 import Admin from './pages/Admin';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ResetPassword from './pages/ResetPassword';
 import { useAuth } from './hooks/useAuth';
 import { isAdminSessionOpen } from './lib/adminAuth';
 
@@ -71,6 +73,8 @@ export default function App() {
             <Route path="/admin/:section" element={<ProtectedAdminRoute><Admin /></ProtectedAdminRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Routes>
         </main>
         <FloatingWhatsAppButton />

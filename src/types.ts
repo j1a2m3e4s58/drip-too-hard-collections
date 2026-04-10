@@ -64,12 +64,16 @@ export interface Order {
 export interface Review {
   id: string;
   productId: string;
+  productName?: string;
   userId: string;
   userName: string;
   rating: number;
+  appRating?: number;
   comment: string;
   imageUrl?: string;
+  status?: 'new' | 'read';
   createdAt: any;
+  updatedAt?: any;
 }
 
 export interface Coupon {
@@ -85,14 +89,32 @@ export interface UserProfile {
   uid: string;
   email: string;
   displayName?: string;
+  phone?: string;
   role: 'admin' | 'user';
   wishlist?: string[]; // Array of product IDs
+  wantsOffers?: boolean;
+  memberOfferCode?: string;
+  createdAt?: any;
+  updatedAt?: any;
   savedAddress?: {
     name: string;
     phone: string;
     address: string;
     selectedZoneId?: string;
   };
+}
+
+export interface CustomerDirectMessage {
+  id: string;
+  recipientUid: string;
+  recipientEmail: string;
+  recipientName?: string;
+  subject: string;
+  body: string;
+  status?: 'new' | 'read';
+  createdAt?: any;
+  updatedAt?: any;
+  senderType?: 'admin';
 }
 
 export interface Collection {

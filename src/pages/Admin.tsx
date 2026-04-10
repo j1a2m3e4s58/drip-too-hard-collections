@@ -27,30 +27,36 @@ import {
   Search,
   Settings2,
   ShoppingBag,
+  Star,
   Trash2,
   UserRoundCog,
+  Users,
   ArrowLeft,
   CheckCheck,
+  Send,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { db } from '../firebase';
 import {
   Collection as StoreCollection,
   ContactMessage,
+  CustomerDirectMessage,
   DeliveryZone,
   HeroBanner,
   LookbookItem,
   Order,
   Product,
+  Review,
   StoreSettings,
+  UserProfile,
 } from '../types';
 import { defaultCollections, defaultDeliveryZones, defaultLookbook, defaultStoreSettings, isLegacyDemoImageUrl, isValidHeroBannerContent, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import ImageSourceField from '../components/admin/ImageSourceField';
 import { importedCatalogProducts, mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
-import { formatGhanaCedis } from '../lib/utils';
+import { cn, formatGhanaCedis } from '../lib/utils';
 
-type Section = 'products' | 'hero' | 'collections' | 'lookbook' | 'settings' | 'delivery' | 'orders' | 'messages';
-const sectionIds: Section[] = ['products', 'hero', 'collections', 'lookbook', 'settings', 'delivery', 'orders', 'messages'];
+type Section = 'products' | 'hero' | 'collections' | 'lookbook' | 'settings' | 'delivery' | 'orders' | 'messages' | 'reviews' | 'customers';
+const sectionIds: Section[] = ['products', 'hero', 'collections', 'lookbook', 'settings', 'delivery', 'orders', 'messages', 'reviews', 'customers'];
 
 const emptyProduct = {
   name: '',
@@ -237,11 +243,14 @@ const Admin = () => {
   const section = sectionIds.includes((routeSection || '') as Section) ? (routeSection as Section) : null;
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [heroBanners, setHeroBanners] = useState<HeroBanner[]>([]);
   const [collectionsData, setCollectionsData] = useState<StoreCollection[]>([]);
   const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [customers, setCustomers] = useState<UserProfile[]>([]);
+  const [customerDirectMessages, setCustomerDirectMessages] = useState<CustomerDirectMessage[]>([]);
   const [settings, setSettings] = useState<StoreSettings>({ id: 'settings', ...defaultStoreSettings });
 
   const [productForm, setProductForm] = useState(emptyProduct);
@@ -258,6 +267,10 @@ const Admin = () => {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [messageSearch, setMessageSearch] = useState('');
   const [messageStatusFilter, setMessageStatusFilter] = useState<'all' | 'new' | 'read' | 'replied'>('all');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [customerMessageSubject, setCustomerMessageSubject] = useState('');
+  const [customerMessageBody, setCustomerMessageBody] = useState('');
 
   const sizePresets = {
     tops: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'],
@@ -272,6 +285,9 @@ const Admin = () => {
     });
     const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), (snap) => {
       setOrders(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Order[]);
+    });
+    const unsubReviews = onSnapshot(query(collection(db, 'reviews'), orderBy('createdAt', 'desc')), (snap) => {
+      setReviews(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Review[]);
     });
     const unsubHero = onSnapshot(query(collection(db, 'heroBanners'), orderBy('sortOrder', 'asc')), (snap) => {
       const next = snap.docs
@@ -290,17 +306,26 @@ const Admin = () => {
     const unsubMessages = onSnapshot(query(collection(db, 'contacts'), orderBy('createdAt', 'desc')), (snap) => {
       setContactMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ContactMessage[]);
     });
+    const unsubCustomers = onSnapshot(query(collection(db, 'users'), orderBy('createdAt', 'desc')), (snap) => {
+      setCustomers(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as unknown as UserProfile[]);
+    });
+    const unsubCustomerDirectMessages = onSnapshot(query(collection(db, 'customerMessages'), orderBy('createdAt', 'desc')), (snap) => {
+      setCustomerDirectMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as CustomerDirectMessage[]);
+    });
     const unsubSettings = onSnapshot(doc(db, STOREFRONT_SETTINGS_DOC), (snap) => {
       setSettings(snap.exists() ? { id: snap.id, ...defaultStoreSettings, ...(snap.data() as Omit<StoreSettings, 'id'>) } : { id: 'settings', ...defaultStoreSettings });
     });
     return () => {
       unsubProducts();
       unsubOrders();
+      unsubReviews();
       unsubHero();
       unsubCollections();
       unsubLookbook();
       unsubZones();
       unsubMessages();
+      unsubCustomers();
+      unsubCustomerDirectMessages();
       unsubSettings();
     };
   }, []);
@@ -317,8 +342,9 @@ const Admin = () => {
       zones: deliveryZones.filter((item) => item.active).length,
       pending: orders.filter((item) => item.status === 'Pending').length,
       messages: contactMessages.filter((item) => item.status !== 'replied').length,
+      customers: customers.length,
     }),
-    [collectionsData, contactMessages, deliveryZones, heroBanners, orders, products],
+    [collectionsData, contactMessages, customers, deliveryZones, heroBanners, orders, products],
   );
 
   const messageNotificationCount = useMemo(
@@ -365,6 +391,24 @@ const Admin = () => {
     });
   }, [contactMessages, messageSearch, messageStatusFilter]);
 
+  const filteredCustomers = useMemo(() => {
+    const queryText = customerSearch.trim().toLowerCase();
+    return customers.filter((customer) => {
+      const haystack = [
+        customer.displayName || '',
+        customer.email || '',
+        customer.phone || '',
+        customer.memberOfferCode || '',
+      ].join(' ').toLowerCase();
+      return !queryText || haystack.includes(queryText);
+    });
+  }, [customerSearch, customers]);
+
+  const selectedCustomer = useMemo(
+    () => customers.find((item) => item.uid === selectedCustomerId) || null,
+    [customers, selectedCustomerId],
+  );
+
   const sections = [
     { id: 'products' as const, title: 'Product Management', description: 'Edit products, stock, featured states, prices, and images.', icon: Package },
     { id: 'hero' as const, title: 'Hero Banner Management', description: 'Control homepage banners, CTA text, images, and ordering.', icon: LayoutPanelTop },
@@ -374,6 +418,8 @@ const Admin = () => {
     { id: 'delivery' as const, title: 'Delivery Zones', description: 'Manage zone names, fees, ETAs, and active states.', icon: MapPinned },
     { id: 'orders' as const, title: 'Customer Orders', description: 'Track order, payment, proof, and fulfillment status.', icon: UserRoundCog },
     { id: 'messages' as const, title: 'Customer Messages', description: 'See contact submissions and reply directly from admin.', icon: MessageSquare },
+    { id: 'reviews' as const, title: 'Customer Reviews', description: 'Read product reviews and customer experience feedback.', icon: Star },
+    { id: 'customers' as const, title: 'Customers & Offers', description: 'See signed-up emails and send direct member messages.', icon: Users },
   ];
 
   const resetEditor = () => {
@@ -391,6 +437,36 @@ const Admin = () => {
     window.setTimeout(() => {
       setActionNotice((current) => (current?.message === message ? null : current));
     }, 4500);
+  };
+
+  const sendCustomerMessage = async () => {
+    if (!selectedCustomer || !customerMessageSubject.trim() || !customerMessageBody.trim()) {
+      showNotice('error', 'Choose a customer, add a subject, and write your message.');
+      return;
+    }
+
+    setBusyAction('send-customer-message');
+    try {
+      await addDoc(collection(db, 'customerMessages'), {
+        recipientUid: selectedCustomer.uid,
+        recipientEmail: selectedCustomer.email,
+        recipientName: selectedCustomer.displayName || '',
+        subject: customerMessageSubject.trim(),
+        body: customerMessageBody.trim(),
+        senderType: 'admin',
+        status: 'new',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      setCustomerMessageSubject('');
+      setCustomerMessageBody('');
+      showNotice('success', `Message sent to ${selectedCustomer.email}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showNotice('error', `Could not send message. ${message}`);
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   const openEditor = (kind: Section, item?: any) => {
@@ -671,7 +747,7 @@ const Admin = () => {
 
   const renderForm = () => {
     if (!section) return null;
-    if (!showForm || section === 'settings' || section === 'orders' || section === 'messages') return null;
+    if (!showForm || section === 'settings' || section === 'orders' || section === 'messages' || section === 'reviews' || section === 'customers') return null;
     return (
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="rounded-[1.75rem] border border-white/10 bg-zinc-950 p-4 sm:p-5">
         <div className="mb-5 flex items-center justify-between">
@@ -1023,7 +1099,7 @@ const Admin = () => {
                 </span>
               )}
             </button>
-            {section !== 'settings' && section !== 'orders' && (
+            {section !== 'settings' && section !== 'orders' && section !== 'reviews' && section !== 'customers' && (
               <button type="button" onClick={() => (showForm ? resetEditor() : openEditor(section))} className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-black shadow-[0_8px_24px_rgba(249,115,22,0.18)]">
                 <Plus size={16} />
                 {showForm ? 'Close Form' : 'Add New'}
@@ -1393,6 +1469,213 @@ const Admin = () => {
                   <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">{contactMessages.length ? 'No Matches' : 'Inbox Is Clear'}</p>
                   <h3 className="mt-3 text-3xl font-black tracking-tight">{contactMessages.length ? 'No messages match this filter' : 'No customer messages yet'}</h3>
                   <p className="mt-3 text-white/55">{contactMessages.length ? 'Try another name, email, phone, or status filter.' : 'When someone sends a message from Contact Us, it will appear here immediately.'}</p>
+                </div>
+              )}
+            </div>
+          )}
+          {section === 'customers' && (
+            <div className="space-y-6">
+              <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-5 backdrop-blur-xl">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Customer Emails</p>
+                      <h3 className="mt-2 text-3xl font-black tracking-tight">Signed-Up Customer List</h3>
+                    </div>
+                    <div className="rounded-full border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/75">
+                      {filteredCustomers.length} customers
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Filter Customers</label>
+                    <div className="flex items-center rounded-2xl border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-3">
+                      <Search size={16} className="text-white/35" />
+                      <input
+                        value={customerSearch}
+                        onChange={(event) => setCustomerSearch(event.target.value)}
+                        placeholder="Search name, email, phone, or offer code"
+                        className="ml-3 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/25"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    {filteredCustomers.length ? (
+                      filteredCustomers.map((customer) => {
+                        const inboxCount = customerDirectMessages.filter((message) => message.recipientUid === customer.uid).length;
+                        return (
+                          <div
+                            key={customer.uid}
+                            className={cn(
+                              'rounded-[1.4rem] border p-4 transition-colors',
+                              selectedCustomerId === customer.uid ? 'border-orange-500/40 bg-orange-500/8' : 'border-white/10 bg-[rgba(9,9,11,0.45)]'
+                            )}
+                          >
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                <p className="text-xl font-bold text-white">{customer.displayName || 'DTHC Customer'}</p>
+                                <p className="mt-1 text-sm text-white/60">{customer.email}</p>
+                                {customer.phone && <p className="mt-1 text-sm text-white/45">{customer.phone}</p>}
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/70">
+                                    {customer.wantsOffers ? 'Offers Enabled' : 'Offers Off'}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-orange-300">
+                                    {customer.memberOfferCode || 'DTHC10'}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/70">
+                                    {inboxCount} message{inboxCount === 1 ? '' : 's'}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCustomerId(customer.uid)}
+                                className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-3 text-sm font-bold text-white transition-colors hover:border-orange-500 hover:text-orange-300"
+                              >
+                                <Mail size={14} />
+                                Message Customer
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-[1.4rem] border border-white/10 bg-[rgba(9,9,11,0.45)] p-6 text-center">
+                        <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">No Customers Found</p>
+                        <p className="mt-3 text-white/55">Every sign-up email will appear here automatically for admin follow-up and customer messaging.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-5 backdrop-blur-xl">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Customer Inbox Message</p>
+                  <h3 className="mt-2 text-3xl font-black tracking-tight">Send A Message Inside The App</h3>
+                  <p className="mt-3 text-sm leading-7 text-white/55">
+                    Pick one customer from the list and send a direct message. It will appear in that customer’s profile inbox.
+                  </p>
+
+                  <div className="mt-5 space-y-4">
+                    <label className="block space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Selected Customer</span>
+                      <select
+                        value={selectedCustomerId}
+                        onChange={(event) => setSelectedCustomerId(event.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-[rgba(9,9,11,0.58)] px-4 py-3 text-sm outline-none backdrop-blur-sm focus:border-orange-500"
+                      >
+                        <option value="">Choose customer</option>
+                        {filteredCustomers.map((customer) => (
+                          <option key={customer.uid} value={customer.uid}>
+                            {(customer.displayName || 'DTHC Customer') + ' - ' + customer.email}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    {selectedCustomer && (
+                      <div className="rounded-[1.25rem] border border-white/10 bg-[rgba(9,9,11,0.55)] p-4 text-sm text-white/75">
+                        <p className="font-bold text-white">{selectedCustomer.displayName || 'DTHC Customer'}</p>
+                        <p className="mt-1">{selectedCustomer.email}</p>
+                        <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-orange-300">
+                          Welcome offer: {selectedCustomer.memberOfferCode || 'DTHC10'}
+                        </p>
+                      </div>
+                    )}
+
+                    <Input label="Message Subject" value={customerMessageSubject} onChange={setCustomerMessageSubject} />
+                    <TextArea label="Message Body" value={customerMessageBody} onChange={setCustomerMessageBody} />
+
+                    <button
+                      type="button"
+                      onClick={sendCustomerMessage}
+                      disabled={busyAction === 'send-customer-message'}
+                      className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-black disabled:opacity-60"
+                    >
+                      <Send size={14} />
+                      {busyAction === 'send-customer-message' ? 'Sending...' : 'Send To Customer'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {section === 'reviews' && (
+            <div className="space-y-6">
+              {reviews.length ? (
+                reviews.map((review) => (
+                  <div key={review.id} className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-5 backdrop-blur-xl">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">
+                          {review.productName || review.productId}
+                        </p>
+                        <h3 className="mt-2 text-2xl font-bold">{review.userName}</h3>
+                        <p className="mt-1 text-sm text-white/45">
+                          {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleString() : 'Pending sync'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-orange-300">
+                          {[...Array(5)].map((_, index) => (
+                            <Star key={`${review.id}-star-${index}`} size={12} fill={index < review.rating ? 'currentColor' : 'none'} />
+                          ))}
+                          <span className="ml-2">{review.rating}/5</span>
+                        </div>
+                        <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/75">
+                          <span>App:</span>
+                          {[...Array(5)].map((_, index) => (
+                            <Star key={`${review.id}-app-star-${index}`} size={11} fill={index < Number(review.appRating || review.rating || 0) ? 'currentColor' : 'none'} className="text-orange-300" />
+                          ))}
+                          <span className="ml-2">{Number(review.appRating || review.rating || 0)}/5</span>
+                        </div>
+                        <div className="inline-flex rounded-full border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/70">
+                          {review.status || 'new'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-5 rounded-[1.25rem] border border-white/10 bg-[rgba(9,9,11,0.6)] p-5 backdrop-blur-md">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">Review Message</p>
+                      <p className="mt-3 text-sm leading-7 text-white/75">{review.comment}</p>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setBusyAction(`review-${review.id}`);
+                          try {
+                            await updateDoc(doc(db, 'reviews', review.id), { status: 'read', updatedAt: serverTimestamp() });
+                            showNotice('success', 'Review marked as read.');
+                          } catch (error) {
+                            const message = error instanceof Error ? error.message : String(error);
+                            showNotice('error', `Could not update review. ${message}`);
+                          } finally {
+                            setBusyAction(null);
+                          }
+                        }}
+                        disabled={busyAction === `review-${review.id}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-[rgba(39,39,42,0.72)] px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                      >
+                        <CheckCheck size={14} />
+                        {busyAction === `review-${review.id}` ? 'Saving...' : 'Mark Read'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDoc('reviews', review.id, 'customer review')}
+                        className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white"
+                      >
+                        <Trash2 size={14} />
+                        Delete Review
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-8 text-center backdrop-blur-xl">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">No Reviews Yet</p>
+                  <h3 className="mt-3 text-3xl font-black tracking-tight">Customer reviews will appear here</h3>
+                  <p className="mt-3 text-white/55">When someone posts a product review, you will see the rating and review message here immediately.</p>
                 </div>
               )}
             </div>
