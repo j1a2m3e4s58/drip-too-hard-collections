@@ -9,6 +9,8 @@ export interface CartItem extends Product {
 }
 
 const CART_STORAGE_KEY = 'dthc_cart';
+const ADD_GUARD_WINDOW_MS = 1200;
+let lastAddGuard: { key: string; at: number } | null = null;
 
 const readCartFromStorage = (): CartItem[] => {
   const savedCart = localStorage.getItem(CART_STORAGE_KEY);
@@ -64,8 +66,16 @@ export const useCart = () => {
   };
 
   const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
+    const cartKey = getCartKey(product.id, selectedSize, selectedColor);
+    const now = Date.now();
+
+    if (lastAddGuard && lastAddGuard.key === cartKey && now - lastAddGuard.at < ADD_GUARD_WINDOW_MS) {
+      return;
+    }
+
+    lastAddGuard = { key: cartKey, at: now };
+
     setCart(prev => {
-      const cartKey = getCartKey(product.id, selectedSize, selectedColor);
       const existing = prev.find(item => item.cartKey === cartKey);
       const maxAllowedQuantity = getMaxAllowedQuantity(product);
 

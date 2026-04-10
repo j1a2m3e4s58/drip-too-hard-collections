@@ -42,6 +42,22 @@ import { findImportedCatalogProduct, mergeWithImportedCatalogProducts } from '..
 import { getRecentlyViewedIds, pushRecentlyViewedId } from '../lib/customerExperience';
 import { cn, formatGhanaCedis } from '../lib/utils';
 
+const safeStringArray = (value: unknown) =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+
+const safeReviewDate = (value: unknown) => {
+  if (!value || typeof value !== 'object' || !('toDate' in (value as object))) {
+    return '';
+  }
+
+  try {
+    const date = (value as { toDate: () => Date }).toDate();
+    return date instanceof Date ? date.toLocaleDateString() : '';
+  } catch {
+    return '';
+  }
+};
+
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
@@ -211,13 +227,14 @@ const ProductDetail = () => {
     );
   }
 
+  const sizeOptions = safeStringArray(product.sizeOptions);
+  const colorOptions = safeStringArray(product.colorOptions);
   const hasFlashSale = product.flashSalePrice && product.flashSalePrice > 0;
   const currentPrice = hasFlashSale ? product.flashSalePrice : product.price;
   const totalPrice = currentPrice * quantity;
-  const originalTotalPrice = product.price * quantity;
   const isOutOfStock = !product.inStock || (product.stockCount !== undefined && product.stockCount === 0);
   const maxSelectableQuantity = product.stockCount !== undefined && product.stockCount > 0 ? product.stockCount : 99;
-  const productGallery = Array.from(new Set([product.image, ...(product.galleryImages || [])].filter(Boolean)));
+  const productGallery = Array.from(new Set([product.image, ...safeStringArray(product.galleryImages)].filter(Boolean)));
   const recommendedProducts = catalogProducts
     .filter((item) => item.id !== product.id && item.category === product.category)
     .slice(0, 4);
@@ -378,11 +395,11 @@ const ProductDetail = () => {
 
             {/* Actions */}
             <div className="space-y-6 mb-12">
-              {!!product.sizeOptions?.length && (
+              {!!sizeOptions.length && (
                 <div>
                   <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/45">Select Size</p>
                   <div className="flex flex-wrap gap-3">
-                    {product.sizeOptions.map((size) => (
+                    {sizeOptions.map((size) => (
                       <button
                         key={size}
                         type="button"
@@ -400,11 +417,11 @@ const ProductDetail = () => {
                   </div>
                 </div>
               )}
-              {!!product.colorOptions?.length && (
+              {!!colorOptions.length && (
                 <div>
                   <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/45">Select Color</p>
                   <div className="flex flex-wrap gap-3">
-                    {product.colorOptions.map((color) => (
+                    {colorOptions.map((color) => (
                       <button
                         key={color}
                         type="button"
@@ -595,9 +612,7 @@ const ProductDetail = () => {
                       </div>
                       <div>
                         <p className="text-sm font-bold">{review.userName}</p>
-                        <p className="text-[10px] text-white/30 uppercase tracking-widest">
-                          {review.createdAt?.toDate().toLocaleDateString()}
-                        </p>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest">{safeReviewDate(review.createdAt)}</p>
                       </div>
                     </div>
                     <div className="flex items-center text-orange-500">

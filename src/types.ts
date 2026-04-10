@@ -11,6 +11,7 @@
   featured?: boolean;
   inStock: boolean;
   stockCount?: number;
+  variantStock?: Record<string, number>;
   flashSalePrice?: number;
   flashSaleEnd?: any;
   sizeOptions?: string[];
@@ -53,6 +54,8 @@ export interface Order {
   customerNotes?: string;
   subtotal?: number;
   shipping?: number;
+  discountAmount?: number;
+  couponCode?: string;
   paymentProofUrl?: string;
   createdAt: any;
   updatedAt?: any;
@@ -84,6 +87,12 @@ export interface UserProfile {
   displayName?: string;
   role: 'admin' | 'user';
   wishlist?: string[]; // Array of product IDs
+  savedAddress?: {
+    name: string;
+    phone: string;
+    address: string;
+    selectedZoneId?: string;
+  };
 }
 
 export interface Collection {

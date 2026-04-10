@@ -67,17 +67,36 @@ export const importedCatalogProducts: Product[] = Array.from({ length: 90 }, (_,
 
 export const importedCatalogIds = new Set(importedCatalogProducts.map((item) => item.id));
 
+const ensureStringArray = (value: unknown, fallback: string[] = []) => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    return [value.trim()];
+  }
+
+  return fallback;
+};
+
+const normalizeProductShape = (product: Product): Product => ({
+  ...product,
+  galleryImages: ensureStringArray(product.galleryImages),
+  sizeOptions: ensureStringArray(product.sizeOptions),
+  colorOptions: ensureStringArray(product.colorOptions),
+});
+
 export function mergeWithImportedCatalogProducts(products: Product[]) {
   const merged = new Map(importedCatalogProducts.map((item) => [item.id, item]));
 
   products.forEach((item) => {
-    merged.set(item.id, {
+    merged.set(item.id, normalizeProductShape({
       ...(merged.get(item.id) || {}),
       ...item,
-    } as Product);
+    } as Product));
   });
 
-  return Array.from(merged.values());
+  return Array.from(merged.values()).map(normalizeProductShape);
 }
 
 export function findImportedCatalogProduct(productId?: string | null) {
@@ -85,5 +104,6 @@ export function findImportedCatalogProduct(productId?: string | null) {
     return null;
   }
 
-  return importedCatalogProducts.find((item) => item.id === productId) || null;
+  const found = importedCatalogProducts.find((item) => item.id === productId);
+  return found ? normalizeProductShape(found) : null;
 }
