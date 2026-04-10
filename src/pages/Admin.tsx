@@ -15,6 +15,7 @@ import {
 import {
   Boxes,
   Bell,
+  Tag,
   LayoutPanelTop,
   MapPinned,
   Mail,
@@ -46,6 +47,7 @@ import {
   LookbookItem,
   Order,
   Product,
+  Coupon,
   Review,
   StoreSettings,
   UserProfile,
@@ -53,10 +55,10 @@ import {
 import { defaultCollections, defaultDeliveryZones, defaultLookbook, defaultStoreSettings, isLegacyDemoImageUrl, isValidHeroBannerContent, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import ImageSourceField from '../components/admin/ImageSourceField';
 import { importedCatalogProducts, mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
-import { cn, formatGhanaCedis } from '../lib/utils';
+import { cn, formatGhanaCedis, normalizeVariantStock, parseVariantStockInput, serializeVariantStockInput } from '../lib/utils';
 
-type Section = 'products' | 'hero' | 'collections' | 'lookbook' | 'settings' | 'delivery' | 'orders' | 'messages' | 'reviews' | 'customers';
-const sectionIds: Section[] = ['products', 'hero', 'collections', 'lookbook', 'settings', 'delivery', 'orders', 'messages', 'reviews', 'customers'];
+type Section = 'products' | 'hero' | 'collections' | 'lookbook' | 'settings' | 'promos' | 'delivery' | 'orders' | 'messages' | 'reviews' | 'customers';
+const sectionIds: Section[] = ['products', 'hero', 'collections', 'lookbook', 'settings', 'promos', 'delivery', 'orders', 'messages', 'reviews', 'customers'];
 
 const emptyProduct = {
   name: '',
@@ -72,6 +74,7 @@ const emptyProduct = {
   featured: false,
   inStock: true,
   stockCount: 0,
+  variantStock: {} as Record<string, number>,
   flashSalePrice: 0,
   flashSaleEnd: '',
   imageSourceType: 'url' as const,
@@ -134,6 +137,16 @@ const emptyZone = {
   notes: '',
   active: true,
   sortOrder: 1,
+};
+
+const emptyCoupon = {
+  code: '',
+  discountType: 'percentage' as const,
+  value: 10,
+  description: '',
+  minOrderAmount: 0,
+  expiryDate: '',
+  isActive: true,
 };
 
 const starterHeroBanners: Omit<HeroBanner, 'id'>[] = [
@@ -248,6 +261,7 @@ const Admin = () => {
   const [collectionsData, setCollectionsData] = useState<StoreCollection[]>([]);
   const [lookbookItems, setLookbookItems] = useState<LookbookItem[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [customers, setCustomers] = useState<UserProfile[]>([]);
   const [customerDirectMessages, setCustomerDirectMessages] = useState<CustomerDirectMessage[]>([]);
@@ -258,6 +272,7 @@ const Admin = () => {
   const [collectionForm, setCollectionForm] = useState(emptyCollection);
   const [lookbookForm, setLookbookForm] = useState(emptyLookbook);
   const [zoneForm, setZoneForm] = useState(emptyZone);
+  const [couponForm, setCouponForm] = useState(emptyCoupon);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -303,6 +318,9 @@ const Admin = () => {
     const unsubZones = onSnapshot(query(collection(db, 'deliveryZones'), orderBy('sortOrder', 'asc')), (snap) => {
       setDeliveryZones(snap.empty ? defaultDeliveryZones : (snap.docs.map((item) => ({ id: item.id, ...item.data() })) as DeliveryZone[]));
     });
+    const unsubCoupons = onSnapshot(query(collection(db, 'coupons'), orderBy('code', 'asc')), (snap) => {
+      setCoupons(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Coupon[]);
+    });
     const unsubMessages = onSnapshot(query(collection(db, 'contacts'), orderBy('createdAt', 'desc')), (snap) => {
       setContactMessages(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as ContactMessage[]);
     });
@@ -323,6 +341,7 @@ const Admin = () => {
       unsubCollections();
       unsubLookbook();
       unsubZones();
+      unsubCoupons();
       unsubMessages();
       unsubCustomers();
       unsubCustomerDirectMessages();
@@ -415,6 +434,7 @@ const Admin = () => {
     { id: 'collections' as const, title: 'Collections Management', description: 'Create and feature collections for storefront discovery.', icon: Boxes },
     { id: 'lookbook' as const, title: 'Lookbook Management', description: 'Manage style inspiration cards and lookbook images.', icon: LayoutPanelTop },
     { id: 'settings' as const, title: 'Store Settings', description: 'Update messaging, support contacts, and page copy.', icon: Settings2 },
+    { id: 'promos' as const, title: 'Promo Codes', description: 'Create discount codes and checkout offers.', icon: Tag },
     { id: 'delivery' as const, title: 'Delivery Zones', description: 'Manage zone names, fees, ETAs, and active states.', icon: MapPinned },
     { id: 'orders' as const, title: 'Customer Orders', description: 'Track order, payment, proof, and fulfillment status.', icon: UserRoundCog },
     { id: 'messages' as const, title: 'Customer Messages', description: 'See contact submissions and reply directly from admin.', icon: MessageSquare },
@@ -430,6 +450,7 @@ const Admin = () => {
     setCollectionForm(emptyCollection);
     setLookbookForm(emptyLookbook);
     setZoneForm(emptyZone);
+    setCouponForm(emptyCoupon);
   };
 
   const showNotice = (type: 'success' | 'error', message: string) => {
@@ -477,7 +498,7 @@ const Admin = () => {
     }
     setEditingId(item.id);
     const { id, ...rest } = item;
-    if (kind === 'products') setProductForm({ ...emptyProduct, ...rest, galleryImages: Array.isArray(rest.galleryImages) && rest.galleryImages.length ? rest.galleryImages : [''], colorOptions: Array.isArray(rest.colorOptions) ? rest.colorOptions : [] });
+    if (kind === 'products') setProductForm({ ...emptyProduct, ...rest, galleryImages: Array.isArray(rest.galleryImages) && rest.galleryImages.length ? rest.galleryImages : [''], colorOptions: Array.isArray(rest.colorOptions) ? rest.colorOptions : [], variantStock: normalizeVariantStock(rest.variantStock) || {} });
     if (kind === 'hero')
       setHeroForm({
         ...emptyHero,
@@ -490,6 +511,18 @@ const Admin = () => {
     if (kind === 'collections') setCollectionForm({ ...emptyCollection, ...rest, linkedProductIds: Array.isArray(rest.linkedProductIds) ? rest.linkedProductIds : [] });
     if (kind === 'lookbook') setLookbookForm({ ...emptyLookbook, ...rest, linkedProductIds: Array.isArray(rest.linkedProductIds) ? rest.linkedProductIds : [] });
     if (kind === 'delivery') setZoneForm({ ...emptyZone, ...rest });
+    if (kind === 'promos') {
+      setCouponForm({
+        ...emptyCoupon,
+        ...rest,
+        expiryDate:
+          typeof rest.expiryDate === 'string'
+            ? rest.expiryDate.slice(0, 16)
+            : rest.expiryDate?.toDate
+              ? new Date(rest.expiryDate.toDate()).toISOString().slice(0, 16)
+              : '',
+      });
+    }
   };
 
   const saveSection = async (event: React.FormEvent) => {
@@ -503,6 +536,7 @@ const Admin = () => {
           galleryImages: (productForm.galleryImages || []).map((item) => item.trim()).filter(Boolean),
           sizeOptions: (productForm.sizeOptions || []).map((item) => item.trim()).filter(Boolean),
           colorOptions: (productForm.colorOptions || []).map((item) => item.trim()).filter(Boolean),
+          variantStock: normalizeVariantStock(productForm.variantStock),
           updatedAt: serverTimestamp(),
         };
         editingId
@@ -544,6 +578,19 @@ const Admin = () => {
       if (section === 'delivery') {
         const payload = { ...zoneForm, fee: Number(zoneForm.fee || 0), sortOrder: Number(zoneForm.sortOrder || 1), updatedAt: serverTimestamp() };
         editingId ? await updateDoc(doc(db, 'deliveryZones', editingId), payload) : await addDoc(collection(db, 'deliveryZones'), { ...payload, createdAt: serverTimestamp() });
+      }
+      if (section === 'promos') {
+        const payload = {
+          code: couponForm.code.trim().toUpperCase(),
+          discountType: couponForm.discountType,
+          value: Number(couponForm.value || 0),
+          description: couponForm.description.trim(),
+          minOrderAmount: Number(couponForm.minOrderAmount || 0),
+          expiryDate: couponForm.expiryDate ? new Date(couponForm.expiryDate).toISOString() : '',
+          isActive: couponForm.isActive,
+          updatedAt: serverTimestamp(),
+        };
+        editingId ? await updateDoc(doc(db, 'coupons', editingId), payload) : await addDoc(collection(db, 'coupons'), { ...payload, createdAt: serverTimestamp() });
       }
       showNotice('success', editingId ? 'Changes saved successfully.' : 'Item created successfully.');
       resetEditor();
@@ -773,6 +820,14 @@ const Admin = () => {
                 value={(productForm.colorOptions || []).join(', ')}
                 onChange={(v) => setProductForm({ ...productForm, colorOptions: v.split(',').map((item) => item.trim()).filter(Boolean) })}
               />
+              <TextArea
+                label="Variant stock (size|color|qty)"
+                value={serializeVariantStockInput(productForm.variantStock)}
+                onChange={(v) => setProductForm({ ...productForm, variantStock: parseVariantStockInput(v) })}
+              />
+              <p className="-mt-2 text-xs leading-6 text-white/45">
+                Add one stock rule per line. Examples: <span className="text-white/65">M|Black|4</span>, <span className="text-white/65">32||6</span>, <span className="text-white/65">|Red|3</span>
+              </p>
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">Quick size sets</p>
                 <div className="flex flex-wrap gap-2">
@@ -954,6 +1009,24 @@ const Admin = () => {
               </div>
               <TextArea label="Notes" value={zoneForm.notes || ''} onChange={(v) => setZoneForm({ ...zoneForm, notes: v })} />
               <Toggle label="Active zone" checked={zoneForm.active} onChange={(checked) => setZoneForm({ ...zoneForm, active: checked })} />
+            </>
+          )}
+          {section === 'promos' && (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input label="Promo code" value={couponForm.code} onChange={(v) => setCouponForm({ ...couponForm, code: v.toUpperCase() })} />
+                <Input label="Description" value={couponForm.description} onChange={(v) => setCouponForm({ ...couponForm, description: v })} />
+                <Select
+                  label="Discount type"
+                  value={couponForm.discountType}
+                  options={['percentage', 'fixed']}
+                  onChange={(v) => setCouponForm({ ...couponForm, discountType: v as Coupon['discountType'] })}
+                />
+                <Input label="Discount value" type="number" value={String(couponForm.value)} onChange={(v) => setCouponForm({ ...couponForm, value: Number(v) })} />
+                <Input label="Minimum order amount" type="number" value={String(couponForm.minOrderAmount)} onChange={(v) => setCouponForm({ ...couponForm, minOrderAmount: Number(v) })} />
+                <Input label="Expiry date" type="datetime-local" value={couponForm.expiryDate} onChange={(v) => setCouponForm({ ...couponForm, expiryDate: v })} />
+              </div>
+              <Toggle label="Active promo code" checked={couponForm.isActive} onChange={(checked) => setCouponForm({ ...couponForm, isActive: checked })} />
             </>
           )}
           <div className="flex justify-end gap-3">
@@ -1155,6 +1228,53 @@ const Admin = () => {
               {[...lookbookItems].sort((a, b) => (a.sortOrder ?? 99) - (b.sortOrder ?? 99)).map((item) => (
                 <MediaCard key={item.id} image={item.image} title={item.title || item.caption} subtitle={item.description || item.caption} badges={[item.caption, `Sort ${item.sortOrder ?? 1}`, item.featured ? 'Featured' : '']} onEdit={() => openEditor('lookbook', item)} onDelete={() => handleDeleteDoc('lookbookItems', item.id, 'lookbook item')} />
               ))}
+            </div>
+          )}
+          {section === 'promos' && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {coupons.length ? (
+                coupons.map((item) => (
+                  <div key={item.id} className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-5 backdrop-blur-xl">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-400">Promo Code</p>
+                        <h3 className="mt-2 text-3xl font-bold tracking-tight">{item.code}</h3>
+                        <p className="mt-3 text-sm leading-7 text-white/55">{item.description || 'Checkout discount code managed from admin.'}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-orange-300">
+                          {item.discountType === 'percentage' ? `${item.value}% off` : `${formatGhanaCedis(item.value)} off`}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-[rgba(9,9,11,0.55)] px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/70">
+                          Min {formatGhanaCedis(item.minOrderAmount || 0)}
+                        </span>
+                        <span className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-widest ${item.isActive ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-[rgba(9,9,11,0.55)] text-white/60'}`}>
+                          {item.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-3 text-sm text-white/50">
+                      <span>Expires: {item.expiryDate ? new Date(item.expiryDate).toLocaleString() : 'No expiry'}</span>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button type="button" onClick={() => openEditor('promos', item)} className="inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-black">
+                        <Pencil size={14} />
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => handleDeleteDoc('coupons', item.id, 'promo code')} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white">
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[1.75rem] border border-white/10 bg-[rgba(24,24,27,0.66)] p-8 text-center backdrop-blur-xl lg:col-span-2">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">No Promo Codes Yet</p>
+                  <h3 className="mt-3 text-3xl font-black tracking-tight">Create your first checkout offer</h3>
+                  <p className="mt-3 text-white/55">Use Add New to create discount codes customers can apply during checkout.</p>
+                </div>
+              )}
             </div>
           )}
           {section === 'delivery' && (

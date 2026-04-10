@@ -22,12 +22,36 @@ export function getVariantStockQuantity(
     return undefined;
   }
 
-  const exactKey = getVariantStockKey(selectedSize, selectedColor);
-  if (typeof variantStock[exactKey] === 'number') {
-    return Math.max(0, variantStock[exactKey]);
+  const candidates = [
+    getVariantStockKey(selectedSize, selectedColor),
+    getVariantStockKey(selectedSize, undefined),
+    getVariantStockKey(undefined, selectedColor),
+    getVariantStockKey(undefined, undefined),
+  ];
+
+  for (const key of candidates) {
+    if (typeof variantStock[key] === 'number') {
+      return Math.max(0, variantStock[key]);
+    }
   }
 
   return undefined;
+}
+
+export function normalizeVariantStock(variantStock?: Record<string, number>) {
+  if (!variantStock) {
+    return undefined;
+  }
+
+  const entries = Object.entries(variantStock)
+    .filter(([key, quantity]) => typeof key === 'string' && Number.isFinite(quantity))
+    .map(([key, quantity]) => [key, Math.max(0, Number(quantity))] as const);
+
+  if (!entries.length) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
 }
 
 export function parseVariantStockInput(value: string) {

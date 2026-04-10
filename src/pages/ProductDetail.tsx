@@ -40,10 +40,22 @@ import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
 import { findImportedCatalogProduct, mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
 import { getRecentlyViewedIds, pushRecentlyViewedId } from '../lib/customerExperience';
-import { cn, formatGhanaCedis } from '../lib/utils';
+import { cn, formatGhanaCedis, getVariantStockQuantity, normalizeVariantStock } from '../lib/utils';
 
 const safeStringArray = (value: unknown) =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+
+const normalizeProductData = (value: Product): Product => ({
+  ...value,
+  image: typeof value.image === 'string' ? value.image : '',
+  galleryImages: safeStringArray(value.galleryImages),
+  sizeOptions: safeStringArray(value.sizeOptions),
+  colorOptions: safeStringArray(value.colorOptions),
+  variantStock: normalizeVariantStock(value.variantStock),
+  name: typeof value.name === 'string' ? value.name : 'Untitled Product',
+  category: typeof value.category === 'string' ? value.category : 'Shop',
+  description: typeof value.description === 'string' ? value.description : '',
+});
 
 const safeReviewDate = (value: unknown) => {
   if (!value || typeof value !== 'object' || !('toDate' in (value as object))) {
@@ -95,13 +107,13 @@ const ProductDetail = () => {
       const importedFallback = findImportedCatalogProduct(id);
 
       if (docSnap.exists()) {
-        setProduct({
+        setProduct(normalizeProductData({
           ...(importedFallback || {}),
           id: docSnap.id,
           ...(docSnap.data() as Omit<Product, 'id'>),
-        } as Product);
+        } as Product));
       } else {
-        setProduct(importedFallback);
+        setProduct(importedFallback ? normalizeProductData(importedFallback) : null);
       }
       setLoading(false);
     };
@@ -131,10 +143,15 @@ const ProductDetail = () => {
 
   useEffect(() => {
     if (!product) return;
-    if (product.stockCount !== undefined && product.stockCount > 0 && quantity > product.stockCount) {
-      setQuantity(product.stockCount);
+    const selectedVariantStock = getVariantStockQuantity(product.variantStock, selectedSize || undefined, selectedColor || undefined);
+    const effectiveStockCount = selectedVariantStock ?? product.stockCount;
+    if (effectiveStockCount !== undefined && effectiveStockCount > 0 && quantity > effectiveStockCount) {
+      setQuantity(effectiveStockCount);
     }
-  }, [product, quantity]);
+    if (effectiveStockCount === 0 && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [product, quantity, selectedColor, selectedSize]);
 
   useEffect(() => {
     if (!product) return;
@@ -144,7 +161,7 @@ const ProductDetail = () => {
 
   useEffect(() => {
     if (!product) return;
-    const gallery = [product.image, ...(product.galleryImages || [])].filter(Boolean);
+    const gallery = [product.image, ...safeStringArray(product.galleryImages)].filter(Boolean);
     setActiveImage(gallery[0] || '');
   }, [product]);
 
@@ -246,8 +263,10 @@ const ProductDetail = () => {
   const hasFlashSale = product.flashSalePrice && product.flashSalePrice > 0;
   const currentPrice = hasFlashSale ? product.flashSalePrice : product.price;
   const totalPrice = currentPrice * quantity;
-  const isOutOfStock = !product.inStock || (product.stockCount !== undefined && product.stockCount === 0);
-  const maxSelectableQuantity = product.stockCount !== undefined && product.stockCount > 0 ? product.stockCount : 99;
+  const selectedVariantStock = getVariantStockQuantity(product.variantStock, selectedSize || undefined, selectedColor || undefined);
+  const effectiveStockCount = selectedVariantStock ?? product.stockCount;
+  const isOutOfStock = !product.inStock || (effectiveStockCount !== undefined && effectiveStockCount === 0);
+  const maxSelectableQuantity = effectiveStockCount !== undefined && effectiveStockCount > 0 ? effectiveStockCount : 99;
   const productGallery = Array.from(new Set([product.image, ...safeStringArray(product.galleryImages)].filter(Boolean)));
   const recommendedProducts = catalogProducts
     .filter((item) => item.id !== product.id && item.category === product.category)
@@ -265,6 +284,8 @@ const ProductDetail = () => {
     ? reviews.reduce((total, review) => total + Number(review.appRating || review.rating || 0), 0) / reviews.length
     : 0;
   const filledAppAverageStars = Math.round(averageAppRating);
+  const getSizeAvailability = (size: string) => getVariantStockQuantity(product.variantStock, size, selectedColor || undefined);
+  const getColorAvailability = (color: string) => getVariantStockQuantity(product.variantStock, selectedSize || undefined, color);
   const openReviewArea = () => {
     reviewsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     window.setTimeout(() => {
@@ -408,7 +429,7 @@ const ProductDetail = () => {
                 <div className="inline-flex items-center space-x-2 text-emerald-500 bg-emerald-500/10 px-4 py-2 rounded-full border border-emerald-500/20">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-[10px] font-black uppercase tracking-widest">
-                    {product.stockCount && product.stockCount < 5 ? `Only ${product.stockCount} Left` : 'In Stock'}
+                    {effectiveStockCount && effectiveStockCount < 5 ? `Only ${effectiveStockCount} Left` : 'In Stock'}
                   </span>
                 </div>
               )}
@@ -425,7 +446,7 @@ const ProductDetail = () => {
                 Size Help: Available
               </div>
               <div className="border border-white/10 bg-zinc-900 px-3 py-3 text-white/75">
-                Stock Left: {product.stockCount ?? 'Open'}
+                Stock Left: {effectiveStockCount ?? 'Open'}
               </div>
             </div>
 
@@ -435,21 +456,28 @@ const ProductDetail = () => {
                 <div>
                   <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/45">Select Size</p>
                   <div className="flex flex-wrap gap-3">
-                    {sizeOptions.map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => setSelectedSize(size)}
-                        className={cn(
-                          'min-w-[58px] border px-4 py-3 text-xs font-black uppercase tracking-widest transition-all',
-                          selectedSize === size
-                            ? 'border-orange-500 bg-orange-500 text-black'
-                            : 'border-white/10 bg-zinc-900 text-white hover:border-orange-500 hover:text-orange-400'
-                        )}
-                      >
-                        {size}
-                      </button>
-                    ))}
+                    {sizeOptions.map((size) => {
+                        const availability = getSizeAvailability(size);
+                        const isDisabled = availability === 0;
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => setSelectedSize(size)}
+                            className={cn(
+                              'min-w-[58px] border px-4 py-3 text-xs font-black uppercase tracking-widest transition-all',
+                              selectedSize === size
+                                ? 'border-orange-500 bg-orange-500 text-black'
+                                : 'border-white/10 bg-zinc-900 text-white hover:border-orange-500 hover:text-orange-400',
+                              isDisabled && 'cursor-not-allowed border-white/5 bg-zinc-950 text-white/25 hover:border-white/5 hover:text-white/25'
+                            )}
+                          >
+                            {size}
+                            {availability !== undefined ? ` (${availability})` : ''}
+                          </button>
+                        );
+                    })}
                   </div>
                 </div>
               )}
@@ -457,21 +485,28 @@ const ProductDetail = () => {
                 <div>
                   <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/45">Select Color</p>
                   <div className="flex flex-wrap gap-3">
-                    {colorOptions.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setSelectedColor(color)}
-                        className={cn(
-                          'min-w-[72px] border px-4 py-3 text-xs font-black uppercase tracking-widest transition-all',
-                          selectedColor === color
-                            ? 'border-orange-500 bg-orange-500 text-black'
-                            : 'border-white/10 bg-zinc-900 text-white hover:border-orange-500 hover:text-orange-400'
-                        )}
-                      >
-                        {color}
-                      </button>
-                    ))}
+                    {colorOptions.map((color) => {
+                        const availability = getColorAvailability(color);
+                        const isDisabled = availability === 0;
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => setSelectedColor(color)}
+                            className={cn(
+                              'min-w-[72px] border px-4 py-3 text-xs font-black uppercase tracking-widest transition-all',
+                              selectedColor === color
+                                ? 'border-orange-500 bg-orange-500 text-black'
+                                : 'border-white/10 bg-zinc-900 text-white hover:border-orange-500 hover:text-orange-400',
+                              isDisabled && 'cursor-not-allowed border-white/5 bg-zinc-950 text-white/25 hover:border-white/5 hover:text-white/25'
+                            )}
+                          >
+                            {color}
+                            {availability !== undefined ? ` (${availability})` : ''}
+                          </button>
+                        );
+                    })}
                   </div>
                 </div>
               )}
@@ -487,6 +522,7 @@ const ProductDetail = () => {
                     <span className="w-12 text-center font-mono font-bold">{quantity}</span>
                     <button 
                       onClick={() => setQuantity(Math.min(maxSelectableQuantity, quantity + 1))}
+                      disabled={maxSelectableQuantity <= 1 || quantity >= maxSelectableQuantity}
                       className="p-4 hover:text-orange-500 transition-colors"
                     >
                       <Plus size={16} />
@@ -497,6 +533,7 @@ const ProductDetail = () => {
                       addToCartQuantity(product, quantity, selectedSize || undefined, selectedColor || undefined);
                       window.dispatchEvent(new Event('open-cart'));
                     }}
+                    disabled={isOutOfStock}
                     className="flex-1 bg-white text-black py-4 text-sm font-black uppercase tracking-widest hover:bg-orange-500 transition-all flex items-center justify-center space-x-3 group"
                   >
                     <span>Add to Bag</span>

@@ -81,8 +81,12 @@ export interface Coupon {
   code: string;
   discountType: 'percentage' | 'fixed';
   value: number;
+  description?: string;
+  minOrderAmount?: number;
   expiryDate: any;
   isActive: boolean;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface UserProfile {

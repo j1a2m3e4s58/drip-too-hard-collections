@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Product } from '../types';
 import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../hooks/useCart';
-import { cn, formatGhanaCedis } from '../lib/utils';
+import { cn, formatGhanaCedis, getVariantStockQuantity } from '../lib/utils';
 
 interface ProductQuickViewModalProps {
   product: Product | null;
@@ -32,6 +32,15 @@ const ProductQuickViewModal = ({ product, onClose }: ProductQuickViewModalProps)
   const gallery = useMemo(() => Array.from(new Set([product?.image, ...(product?.galleryImages || [])].filter(Boolean))), [product]);
   const isInWishlist = wishlist.includes(product?.id || '');
   const currentPrice = product ? product.flashSalePrice || product.price : 0;
+  const selectedVariantStock = product
+    ? getVariantStockQuantity(product.variantStock, selectedSize || undefined, selectedColor || undefined)
+    : undefined;
+  const effectiveStockCount = selectedVariantStock ?? product?.stockCount;
+  const isOutOfStock = !product?.inStock || (effectiveStockCount !== undefined && effectiveStockCount === 0);
+  const getSizeAvailability = (size: string) =>
+    product ? getVariantStockQuantity(product.variantStock, size, selectedColor || undefined) : undefined;
+  const getColorAvailability = (color: string) =>
+    product ? getVariantStockQuantity(product.variantStock, selectedSize || undefined, color) : undefined;
 
   return (
     <AnimatePresence>
@@ -101,19 +110,26 @@ const ProductQuickViewModal = ({ product, onClose }: ProductQuickViewModalProps)
                   <div className="mt-6">
                     <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Available Sizes</p>
                     <div className="flex flex-wrap gap-2">
-                      {product.sizeOptions.map((size) => (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => setSelectedSize(size)}
-                          className={cn(
-                            'min-w-[52px] border px-3 py-2 text-[11px] font-black uppercase tracking-widest transition-colors',
-                            selectedSize === size ? 'border-orange-500 bg-orange-500 text-black' : 'border-white/10 bg-zinc-900 text-white',
-                          )}
-                        >
-                          {size}
-                        </button>
-                      ))}
+                      {product.sizeOptions.map((size) => {
+                        const availability = getSizeAvailability(size);
+                        const isDisabled = availability === 0;
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => setSelectedSize(size)}
+                            className={cn(
+                              'min-w-[52px] border px-3 py-2 text-[11px] font-black uppercase tracking-widest transition-colors',
+                              selectedSize === size ? 'border-orange-500 bg-orange-500 text-black' : 'border-white/10 bg-zinc-900 text-white',
+                              isDisabled && 'cursor-not-allowed border-white/5 bg-zinc-950 text-white/25'
+                            )}
+                          >
+                            {size}
+                            {availability !== undefined ? ` (${availability})` : ''}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -122,19 +138,26 @@ const ProductQuickViewModal = ({ product, onClose }: ProductQuickViewModalProps)
                   <div className="mt-6">
                     <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Available Colors</p>
                     <div className="flex flex-wrap gap-2">
-                      {product.colorOptions.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setSelectedColor(color)}
-                          className={cn(
-                            'min-w-[72px] border px-3 py-2 text-[11px] font-black uppercase tracking-widest transition-colors',
-                            selectedColor === color ? 'border-orange-500 bg-orange-500 text-black' : 'border-white/10 bg-zinc-900 text-white',
-                          )}
-                        >
-                          {color}
-                        </button>
-                      ))}
+                      {product.colorOptions.map((color) => {
+                        const availability = getColorAvailability(color);
+                        const isDisabled = availability === 0;
+                        return (
+                          <button
+                            key={color}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => setSelectedColor(color)}
+                            className={cn(
+                              'min-w-[72px] border px-3 py-2 text-[11px] font-black uppercase tracking-widest transition-colors',
+                              selectedColor === color ? 'border-orange-500 bg-orange-500 text-black' : 'border-white/10 bg-zinc-900 text-white',
+                              isDisabled && 'cursor-not-allowed border-white/5 bg-zinc-950 text-white/25'
+                            )}
+                          >
+                            {color}
+                            {availability !== undefined ? ` (${availability})` : ''}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -142,8 +165,8 @@ const ProductQuickViewModal = ({ product, onClose }: ProductQuickViewModalProps)
                 <div className="mt-6 grid grid-cols-2 gap-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/65">
                   <div className="border border-white/10 bg-zinc-900 px-3 py-3">Fast Delivery</div>
                   <div className="border border-white/10 bg-zinc-900 px-3 py-3">Mobile Money Ready</div>
-                  {product.stockCount !== undefined && product.stockCount < 5 && product.stockCount > 0 && (
-                    <div className="border border-orange-500/30 bg-orange-500/10 px-3 py-3 text-orange-300">Only {product.stockCount} Left</div>
+                  {effectiveStockCount !== undefined && effectiveStockCount < 5 && effectiveStockCount > 0 && (
+                    <div className="border border-orange-500/30 bg-orange-500/10 px-3 py-3 text-orange-300">Only {effectiveStockCount} Left</div>
                   )}
                 </div>
 
@@ -155,10 +178,11 @@ const ProductQuickViewModal = ({ product, onClose }: ProductQuickViewModalProps)
                       window.dispatchEvent(new Event('open-cart'));
                       onClose();
                     }}
-                    className="inline-flex flex-1 items-center justify-center gap-2 bg-orange-500 px-5 py-3.5 text-sm font-black uppercase tracking-[0.18em] text-black transition-colors hover:bg-orange-400"
+                    disabled={isOutOfStock}
+                    className="inline-flex flex-1 items-center justify-center gap-2 bg-orange-500 px-5 py-3.5 text-sm font-black uppercase tracking-[0.18em] text-black transition-colors hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/45"
                   >
                     <ShoppingBag size={16} />
-                    Add to Bag
+                    {isOutOfStock ? 'Out of Stock' : 'Add to Bag'}
                   </button>
                   <button
                     type="button"

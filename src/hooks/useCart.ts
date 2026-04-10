@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
 import { Product } from '../types';
+import { getVariantStockQuantity } from '../lib/utils';
 
 export interface CartItem extends Product {
   quantity: number;
@@ -54,8 +55,10 @@ export const useCart = () => {
     };
   }, []);
 
-  const getMaxAllowedQuantity = (product: Product | CartItem) => {
+  const getMaxAllowedQuantity = (product: Product | CartItem, selectedSize?: string, selectedColor?: string) => {
     if (!product.inStock) return 0;
+    const variantQuantity = getVariantStockQuantity(product.variantStock, selectedSize, selectedColor);
+    if (variantQuantity !== undefined) return variantQuantity;
     if (product.stockCount === undefined) return Number.MAX_SAFE_INTEGER;
     return Math.max(0, product.stockCount);
   };
@@ -77,7 +80,7 @@ export const useCart = () => {
 
     setCart(prev => {
       const existing = prev.find(item => item.cartKey === cartKey);
-      const maxAllowedQuantity = getMaxAllowedQuantity(product);
+      const maxAllowedQuantity = getMaxAllowedQuantity(product, selectedSize, selectedColor);
 
       if (maxAllowedQuantity <= 0) {
         return prev;
@@ -106,7 +109,7 @@ export const useCart = () => {
     setCart(prev => {
       const cartKey = getCartKey(product.id, selectedSize, selectedColor);
       const existing = prev.find(item => item.cartKey === cartKey);
-      const maxAllowedQuantity = getMaxAllowedQuantity(product);
+      const maxAllowedQuantity = getMaxAllowedQuantity(product, selectedSize, selectedColor);
 
       if (maxAllowedQuantity <= 0) {
         return prev;
@@ -147,7 +150,7 @@ export const useCart = () => {
     setCart(prev => {
       const nextCart = prev.map(item => {
         if (item.cartKey !== cartKey) return item;
-        const maxAllowedQuantity = getMaxAllowedQuantity(item);
+        const maxAllowedQuantity = getMaxAllowedQuantity(item, item.selectedSize, item.selectedColor);
         return { ...item, quantity: Math.min(quantity, maxAllowedQuantity) };
       });
 

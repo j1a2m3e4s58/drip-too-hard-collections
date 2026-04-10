@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import {
   ArrowLeft,
   Banknote,
+  Check,
   CreditCard,
   Info,
   Landmark,
@@ -16,10 +17,10 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useCart } from '../hooks/useCart';
-import { DeliveryZone, Order, StoreSettings } from '../types';
+import { Coupon, DeliveryZone, Order, StoreSettings, UserProfile } from '../types';
 import { defaultDeliveryZones, defaultStoreSettings, STOREFRONT_SETTINGS_DOC } from '../lib/storefront';
 import { formatGhanaCedis } from '../lib/utils';
 
@@ -59,9 +60,15 @@ const Checkout = () => {
   const navigate = useNavigate();
 
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>(defaultDeliveryZones);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [settings, setSettings] = useState<StoreSettings>({ id: 'settings', ...defaultStoreSettings });
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [promoNotice, setPromoNotice] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [saveAddressToAccount, setSaveAddressToAccount] = useState(Boolean(user));
 
   const [formData, setFormData] = useState({
     name: user?.displayName || '',
@@ -95,6 +102,7 @@ const Checkout = () => {
       ...prev,
       name: user?.displayName || prev.name,
     }));
+    setSaveAddressToAccount(Boolean(user));
   }, [user]);
 
   useEffect(() => {
@@ -120,17 +128,58 @@ const Checkout = () => {
       });
     });
 
+    const unsubCoupons = onSnapshot(query(collection(db, 'coupons'), orderBy('code', 'asc')), (snap) => {
+      setCoupons(snap.docs.map((item) => ({ id: item.id, ...item.data() })) as Coupon[]);
+    });
+
     const unsubSettings = onSnapshot(doc(db, STOREFRONT_SETTINGS_DOC), (snap) => {
       if (snap.exists()) {
         setSettings({ id: snap.id, ...defaultStoreSettings, ...(snap.data() as Omit<StoreSettings, 'id'>) });
       }
     });
 
+    let unsubProfile = () => {};
+    if (user?.uid) {
+      unsubProfile = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+        if (!snap.exists()) {
+          setProfile(null);
+          return;
+        }
+
+        const nextProfile = { uid: user.uid, ...(snap.data() as Omit<UserProfile, 'uid'>) } as UserProfile;
+        setProfile(nextProfile);
+        const saved = nextProfile.savedAddress;
+        if (!saved) return;
+
+        setFormData((prev) => {
+          const shouldHydrate =
+            !prev.phone.trim() &&
+            !prev.address.trim() &&
+            !prev.selectedZoneId &&
+            (!prev.name.trim() || prev.name === user.displayName);
+
+          if (!shouldHydrate) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            name: saved.name || prev.name,
+            phone: saved.phone || prev.phone,
+            address: saved.address || prev.address,
+            selectedZoneId: saved.selectedZoneId || prev.selectedZoneId,
+          };
+        });
+      });
+    }
+
     return () => {
       unsubZones();
+      unsubCoupons();
       unsubSettings();
+      unsubProfile();
     };
-  }, []);
+  }, [user]);
 
   const selectedZone = useMemo(
     () => deliveryZones.find((item) => item.id === formData.selectedZoneId) || null,
@@ -142,7 +191,76 @@ const Checkout = () => {
     [cart],
   );
   const deliveryFee = selectedZone?.fee || 0;
-  const estimatedTotal = subtotal + deliveryFee;
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon?.isActive) return 0;
+    if (appliedCoupon.discountType === 'percentage') {
+      return Math.min(subtotal, (subtotal * Number(appliedCoupon.value || 0)) / 100);
+    }
+    return Math.min(subtotal, Number(appliedCoupon.value || 0));
+  }, [appliedCoupon, subtotal]);
+  const estimatedTotal = Math.max(0, subtotal + deliveryFee - discountAmount);
+
+  const savedAddressLabel = useMemo(() => {
+    const saved = profile?.savedAddress;
+    if (!saved) return '';
+    return [saved.name, saved.phone, saved.address].filter(Boolean).join(' • ');
+  }, [profile]);
+
+  const applyCoupon = () => {
+    const normalizedCode = promoCode.trim().toUpperCase();
+    setPromoNotice(null);
+    setAppliedCoupon(null);
+
+    if (!normalizedCode) {
+      setPromoNotice({ type: 'error', message: 'Enter a promo code before applying it.' });
+      return;
+    }
+
+    const matchingCoupon = coupons.find((item) => item.code.trim().toUpperCase() === normalizedCode);
+    if (!matchingCoupon) {
+      setPromoNotice({ type: 'error', message: 'That promo code was not found.' });
+      return;
+    }
+    if (!matchingCoupon.isActive) {
+      setPromoNotice({ type: 'error', message: 'That promo code is inactive right now.' });
+      return;
+    }
+
+    const expiryDate = matchingCoupon.expiryDate?.toDate
+      ? matchingCoupon.expiryDate.toDate()
+      : matchingCoupon.expiryDate
+        ? new Date(matchingCoupon.expiryDate)
+        : null;
+
+    if (expiryDate && !Number.isNaN(expiryDate.getTime()) && expiryDate.getTime() < Date.now()) {
+      setPromoNotice({ type: 'error', message: 'That promo code has expired.' });
+      return;
+    }
+
+    if ((matchingCoupon.minOrderAmount || 0) > subtotal) {
+      setPromoNotice({
+        type: 'error',
+        message: `This promo code needs a minimum order of ${formatGhanaCedis(matchingCoupon.minOrderAmount || 0)}.`,
+      });
+      return;
+    }
+
+    setAppliedCoupon(matchingCoupon);
+    setPromoCode(matchingCoupon.code.toUpperCase());
+    setPromoNotice({ type: 'success', message: `${matchingCoupon.code.toUpperCase()} applied successfully.` });
+  };
+
+  const useSavedAddress = () => {
+    const saved = profile?.savedAddress;
+    if (!saved) return;
+    setFormData((prev) => ({
+      ...prev,
+      name: saved.name || prev.name,
+      phone: saved.phone || prev.phone,
+      address: saved.address || prev.address,
+      selectedZoneId: saved.selectedZoneId || prev.selectedZoneId,
+    }));
+  };
 
   const handlePlaceOrder = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -182,6 +300,8 @@ const Checkout = () => {
         items: orderItems,
         subtotal,
         shipping: deliveryFee,
+        discountAmount,
+        couponCode: appliedCoupon?.code?.toUpperCase() || '',
         total: estimatedTotal,
         status: 'Pending',
         shippingAddress: {
@@ -204,6 +324,25 @@ const Checkout = () => {
 
       batch.set(orderRef, orderData);
       await batch.commit();
+
+      if (user?.uid && saveAddressToAccount) {
+        await setDoc(
+          doc(db, 'users', user.uid),
+          {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || formData.name,
+            savedAddress: {
+              name: formData.name,
+              phone: formData.phone,
+              address: formData.address,
+              selectedZoneId: formData.selectedZoneId,
+            },
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      }
 
       clearCart();
       localStorage.removeItem(CHECKOUT_DRAFT_KEY);
@@ -273,6 +412,22 @@ const Checkout = () => {
               subtitle="Enter the correct details for contact and delivery confirmation."
               icon={User}
             >
+              {profile?.savedAddress && (
+                <div className="flex flex-col gap-3 rounded-[1.15rem] border border-orange-500/20 bg-orange-500/10 p-4 text-sm text-white/75 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-300">Saved Address Found</p>
+                    <p className="mt-2 leading-6">{savedAddressLabel}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={useSavedAddress}
+                    className="inline-flex items-center gap-2 rounded-full border border-orange-400/30 bg-black/25 px-4 py-2 text-xs font-bold uppercase tracking-widest text-orange-200"
+                  >
+                    <Check size={14} />
+                    Use Saved Address
+                  </button>
+                </div>
+              )}
               <div className="grid gap-4 md:grid-cols-2">
                 <InfoInput
                   icon={User}
@@ -287,6 +442,17 @@ const Checkout = () => {
                   onChange={(value) => setFormData((prev) => ({ ...prev, phone: value }))}
                 />
               </div>
+              {user && (
+                <label className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-[rgba(9,9,11,0.34)] px-4 py-3 text-sm font-medium text-white/75">
+                  <input
+                    type="checkbox"
+                    checked={saveAddressToAccount}
+                    onChange={(event) => setSaveAddressToAccount(event.target.checked)}
+                    className="h-4 w-4 accent-orange-500"
+                  />
+                  Save this address for repeat checkout
+                </label>
+              )}
               <InfoInput
                 icon={MapPin}
                 label="Delivery Address"
@@ -434,11 +600,40 @@ const Checkout = () => {
                 Select a delivery zone to apply the correct delivery fee before placing your order.
               </div>
 
+              <div className="mt-5 rounded-[1.35rem] border border-white/10 bg-[rgba(9,9,11,0.34)] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    value={promoCode}
+                    onChange={(event) => setPromoCode(event.target.value.toUpperCase())}
+                    placeholder="Promo code"
+                    className="flex-1 rounded-full border border-white/10 bg-black/35 px-4 py-3 text-sm font-semibold uppercase tracking-widest text-white outline-none placeholder:text-white/25"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyCoupon}
+                    className="rounded-full border border-orange-500/30 bg-orange-500 px-5 py-3 text-sm font-bold text-black"
+                  >
+                    Apply Code
+                  </button>
+                </div>
+                {promoNotice && (
+                  <p className={`mt-3 text-sm font-semibold ${promoNotice.type === 'error' ? 'text-red-300' : 'text-emerald-300'}`}>
+                    {promoNotice.message}
+                  </p>
+                )}
+              </div>
+
               <div className="mt-6 space-y-3 border-t border-white/10 pt-6">
                 <SummaryRow label="Payment" value={formData.paymentMethod} />
                 <SummaryRow label="Delivery Zone" value={selectedZone?.name || 'Not selected'} />
                 <SummaryRow label="Subtotal" value={formatGhanaCedis(subtotal)} />
                 <SummaryRow label="Delivery Fee" value={formatGhanaCedis(deliveryFee)} />
+                {discountAmount > 0 && (
+                  <SummaryRow
+                    label={appliedCoupon?.code ? `Discount (${appliedCoupon.code.toUpperCase()})` : 'Discount'}
+                    value={`- ${formatGhanaCedis(discountAmount)}`}
+                  />
+                )}
                 <div className="flex items-center justify-between gap-4 pt-3">
                   <span className="text-xl sm:text-3xl font-black tracking-tight">Estimated Total</span>
                   <span className="text-2xl sm:text-4xl font-black text-orange-400">{formatGhanaCedis(estimatedTotal)}</span>
