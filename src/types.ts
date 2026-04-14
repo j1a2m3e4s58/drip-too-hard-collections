@@ -118,7 +118,9 @@ export interface CustomerDirectMessage {
   status?: 'new' | 'read';
   createdAt?: any;
   updatedAt?: any;
-  senderType?: 'admin';
+  senderType?: 'admin' | 'system';
+  relatedOrderId?: string;
+  relatedTrackingCode?: string;
 }
 
 export interface Collection {

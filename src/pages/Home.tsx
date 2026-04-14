@@ -235,7 +235,26 @@ const Home = () => {
             {hero ? (
               <motion.div key={hero.id} initial={{ opacity: 0, x: -35 }} animate={{ opacity: 1, x: 0 }} className="max-w-3xl" style={{ touchAction: 'pan-y' }}>
                 <span className="mb-4 block text-xs font-bold uppercase tracking-[0.35em] text-orange-500">{hero.eyebrow || settings.announcementText}</span>
-                <h1 className="mb-4 max-w-[7ch] text-[3rem] font-black uppercase italic leading-[0.92] tracking-tighter sm:text-[4.3rem] md:mb-6 md:max-w-none md:text-7xl xl:text-8xl">{hero.title}</h1>
+                <div className="mb-5">
+                  <div className="relative inline-block leading-none">
+                    <div className="text-[2.55rem] font-black uppercase italic leading-[0.84] tracking-tighter text-white drop-shadow-[0_18px_40px_rgba(0,0,0,0.55)] sm:text-[3.35rem] md:text-6xl">
+                      DRIP TOO
+                    </div>
+                    <div
+                      className="mt-1 text-[2.55rem] font-black uppercase italic leading-[0.84] tracking-tighter text-transparent drop-shadow-[0_18px_40px_rgba(0,0,0,0.55)] sm:text-[3.35rem] md:text-6xl"
+                      style={{ WebkitTextStroke: '2px rgba(255,255,255,0.8)' }}
+                    >
+                      HARD
+                    </div>
+                    <div className="mt-3 flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.5em] text-orange-500 sm:text-xs">
+                      <span className="h-px w-12 bg-orange-500/90" />
+                      <span>COLLECTIONS</span>
+                    </div>
+                  </div>
+                </div>
+                <h1 className="mb-4 max-w-[16ch] text-[2.05rem] font-bold uppercase italic leading-[0.98] tracking-tighter text-white/95 sm:text-[2.75rem] md:mb-6 md:max-w-none md:text-5xl xl:text-6xl">
+                  {hero.title}
+                </h1>
                 <p className="mb-7 max-w-[18rem] text-[15px] leading-7 text-white/75 sm:max-w-[22rem] sm:text-lg md:mb-10 md:max-w-2xl">{hero.subtitle || settings.homepageDescription}</p>
                 {hero.priceLabel && <p className="mb-5 text-sm font-black uppercase tracking-[0.22em] text-white/85 md:mb-6">{hero.priceLabel}</p>}
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">

@@ -79,11 +79,34 @@ const ensureStringArray = (value: unknown, fallback: string[] = []) => {
   return fallback;
 };
 
+const ensureNumber = (value: unknown, fallback = 0) => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const ensureBoolean = (value: unknown, fallback = false) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+
+  return fallback;
+};
+
 const normalizeProductShape = (product: Product): Product => ({
   ...product,
   galleryImages: ensureStringArray(product.galleryImages),
   sizeOptions: ensureStringArray(product.sizeOptions),
   colorOptions: ensureStringArray(product.colorOptions),
+  price: ensureNumber(product.price),
+  flashSalePrice: product.flashSalePrice === undefined ? undefined : ensureNumber(product.flashSalePrice),
+  stockCount: product.stockCount === undefined ? undefined : ensureNumber(product.stockCount),
+  viewCount: product.viewCount === undefined ? undefined : ensureNumber(product.viewCount),
+  inStock: ensureBoolean(product.inStock, true),
 });
 
 export function mergeWithImportedCatalogProducts(products: Product[]) {

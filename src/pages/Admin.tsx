@@ -428,6 +428,81 @@ const Admin = () => {
     [customers, selectedCustomerId],
   );
 
+  const buildOrderInboxUpdates = (order: Order, patch: Partial<Order>) => {
+    const customerProfile = customers.find((item) => item.uid === order.userId);
+    const recipientEmail = customerProfile?.email || '';
+    const recipientName = customerProfile?.displayName || order.shippingAddress.name || 'DTHC Customer';
+    const orderReference = order.trackingCode || order.id.slice(0, 8).toUpperCase();
+
+    const inboxUpdates: Omit<CustomerDirectMessage, 'id'>[] = [];
+
+    if (patch.status && patch.status !== order.status) {
+      inboxUpdates.push({
+        recipientUid: order.userId,
+        recipientEmail,
+        recipientName,
+        subject: 'Order status updated',
+        body: `Your order ${orderReference} is now marked as ${patch.status}. Open Track Order to see the latest progress.`,
+        senderType: 'system',
+        status: 'new',
+        relatedOrderId: order.id,
+        relatedTrackingCode: order.trackingCode || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    if (patch.paymentStatus && patch.paymentStatus !== order.paymentStatus) {
+      inboxUpdates.push({
+        recipientUid: order.userId,
+        recipientEmail,
+        recipientName,
+        subject: 'Payment status updated',
+        body: `Your payment status for order ${orderReference} is now ${patch.paymentStatus}.`,
+        senderType: 'system',
+        status: 'new',
+        relatedOrderId: order.id,
+        relatedTrackingCode: order.trackingCode || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    if (patch.paymentProofStatus && patch.paymentProofStatus !== order.paymentProofStatus) {
+      inboxUpdates.push({
+        recipientUid: order.userId,
+        recipientEmail,
+        recipientName,
+        subject: 'Payment proof update',
+        body: `Your payment proof for order ${orderReference} is now marked as ${patch.paymentProofStatus}.`,
+        senderType: 'system',
+        status: 'new',
+        relatedOrderId: order.id,
+        relatedTrackingCode: order.trackingCode || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    if (patch.orderUpdateStatus && patch.orderUpdateStatus !== order.orderUpdateStatus) {
+      inboxUpdates.push({
+        recipientUid: order.userId,
+        recipientEmail,
+        recipientName,
+        subject: 'Dispatch update',
+        body: `There is a new dispatch update for order ${orderReference}. Status: ${patch.orderUpdateStatus}.`,
+        senderType: 'system',
+        status: 'new',
+        relatedOrderId: order.id,
+        relatedTrackingCode: order.trackingCode || '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    return inboxUpdates;
+  };
+
   const sections = [
     { id: 'products' as const, title: 'Product Management', description: 'Edit products, stock, featured states, prices, and images.', icon: Package },
     { id: 'hero' as const, title: 'Hero Banner Management', description: 'Control homepage banners, CTA text, images, and ordering.', icon: LayoutPanelTop },
@@ -621,7 +696,14 @@ const Admin = () => {
   const updateOrderField = async (orderId: string, patch: Partial<Order>) => {
     setBusyAction(`order-${orderId}`);
     try {
+      const targetOrder = orders.find((item) => item.id === orderId);
       await updateDoc(doc(db, 'orders', orderId), { ...patch, updatedAt: serverTimestamp() });
+      if (targetOrder?.userId) {
+        const inboxUpdates = buildOrderInboxUpdates(targetOrder, patch);
+        if (inboxUpdates.length) {
+          await Promise.all(inboxUpdates.map((item) => addDoc(collection(db, 'customerMessages'), item)));
+        }
+      }
       showNotice('success', 'Order updated.');
     } catch (error) {
       console.error('Failed to update order:', error);

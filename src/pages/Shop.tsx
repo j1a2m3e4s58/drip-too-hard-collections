@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ChevronDown, Search, Sparkles } from 'lucide-react';
+import { ChevronDown, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import ProductCard from '../components/ProductCard';
@@ -9,6 +9,7 @@ import { ProductCardSkeleton } from '../components/Skeleton';
 import { db } from '../firebase';
 import { DeliveryZone, Product } from '../types';
 import { mergeWithImportedCatalogProducts } from '../lib/importedCatalog';
+import { cn } from '../lib/utils';
 
 const Shop = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +20,12 @@ const Shop = () => {
   const [sortBy, setSortBy] = useState('Newest');
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [priceFilter, setPriceFilter] = useState('All');
+  const [stockFilter, setStockFilter] = useState('All');
+  const [promoFilter, setPromoFilter] = useState('All');
+  const [sizeFilter, setSizeFilter] = useState('All');
+  const [colorFilter, setColorFilter] = useState('All');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -55,6 +62,9 @@ const Shop = () => {
   }, [searchParams]);
 
   const categories = ['All', ...Array.from(new Set(products.map((product) => product.category).filter(Boolean))) as string[]];
+  const sizeOptions = ['All', ...Array.from(new Set(products.flatMap((product) => product.sizeOptions || []))).filter(Boolean)];
+  const colorOptions = ['All', ...Array.from(new Set(products.flatMap((product) => product.colorOptions || []))).filter(Boolean)];
+  const priceOptions = ['All', 'Under GH₵ 150', 'GH₵ 150 - 250', 'Above GH₵ 250'];
   const linkedIds = (searchParams.get('ids') || '')
     .split(',')
     .map((item) => item.trim())
@@ -62,13 +72,48 @@ const Shop = () => {
 
   const filteredProducts = products.filter((product) => {
     const normalizedQuery = searchQuery.toLowerCase();
+    const productPrice = product.flashSalePrice || product.price;
     const matchesCategory = activeCategory === 'All' || product.category === activeCategory;
     const matchesSearch =
       product.name.toLowerCase().includes(normalizedQuery) ||
       product.category.toLowerCase().includes(normalizedQuery) ||
       product.description.toLowerCase().includes(normalizedQuery);
     const matchesLinkedIds = !linkedIds.length || linkedIds.includes(product.id);
-    return matchesCategory && matchesSearch && matchesLinkedIds;
+    const matchesStock =
+      stockFilter === 'All' ||
+      (stockFilter === 'In Stock' && product.inStock && (product.stockCount === undefined || product.stockCount > 0)) ||
+      (stockFilter === 'Low Stock' &&
+        product.inStock &&
+        product.stockCount !== undefined &&
+        product.stockCount > 0 &&
+        product.stockCount < 5) ||
+      (stockFilter === 'Sold Out' && (!product.inStock || product.stockCount === 0));
+    const matchesPromo =
+      promoFilter === 'All' ||
+      (promoFilter === 'Featured' && Boolean(product.featured)) ||
+      (promoFilter === 'Flash Sale' && Boolean(product.flashSalePrice && product.flashSalePrice > 0)) ||
+      (promoFilter === 'Best Seller' && Boolean(product.isBestseller)) ||
+      (promoFilter === 'New Drop' && Boolean(product.isNew));
+    const matchesSize =
+      sizeFilter === 'All' || Boolean(product.sizeOptions?.includes(sizeFilter));
+    const matchesColor =
+      colorFilter === 'All' || Boolean(product.colorOptions?.includes(colorFilter));
+    const matchesPrice =
+      priceFilter === 'All' ||
+      (priceFilter === 'Under GH₵ 150' && productPrice < 150) ||
+      (priceFilter === 'GH₵ 150 - 250' && productPrice >= 150 && productPrice <= 250) ||
+      (priceFilter === 'Above GH₵ 250' && productPrice > 250);
+
+    return (
+      matchesCategory &&
+      matchesSearch &&
+      matchesLinkedIds &&
+      matchesStock &&
+      matchesPromo &&
+      matchesSize &&
+      matchesColor &&
+      matchesPrice
+    );
   });
 
   const sortedProducts = useMemo(() => {
@@ -128,6 +173,15 @@ const Shop = () => {
   }, [categories, products, searchQuery]);
 
   const deliveryEta = useMemo(() => deliveryZones.find((item) => item.eta)?.eta || '', [deliveryZones]);
+  const activeFilterCount = [priceFilter, stockFilter, promoFilter, sizeFilter, colorFilter].filter((item) => item !== 'All').length;
+
+  const clearAdvancedFilters = () => {
+    setPriceFilter('All');
+    setStockFilter('All');
+    setPromoFilter('All');
+    setSizeFilter('All');
+    setColorFilter('All');
+  };
 
   if (loading) {
     return (
@@ -158,7 +212,8 @@ const Shop = () => {
           )}
         </div>
 
-        <div className="mb-8 flex flex-col items-start gap-5 border-b border-white/10 pb-6 md:mb-12 md:gap-6 md:pb-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mb-8 flex flex-col items-start gap-5 border-b border-white/10 pb-6 md:mb-12 md:gap-6 md:pb-8">
+          <div className="flex w-full flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
@@ -214,6 +269,105 @@ const Shop = () => {
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40" size={16} />
             </div>
+          </div>
+          </div>
+
+          <div className="flex w-full flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters((current) => !current)}
+                className={cn(
+                  'inline-flex items-center gap-2 border px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors sm:text-xs',
+                  showAdvancedFilters || activeFilterCount > 0
+                    ? 'border-orange-500 bg-orange-500 text-black'
+                    : 'border-white/10 bg-zinc-900 text-white/75 hover:border-orange-500 hover:text-orange-400'
+                )}
+              >
+                <SlidersHorizontal size={14} />
+                <span>Filters</span>
+                {activeFilterCount > 0 && <span>{activeFilterCount}</span>}
+              </button>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAdvancedFilters}
+                  className="inline-flex items-center gap-2 border border-white/10 bg-zinc-900 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/65 transition-colors hover:border-white/30 hover:text-white sm:text-xs"
+                >
+                  <X size={14} />
+                  <span>Clear Filters</span>
+                </button>
+              )}
+            </div>
+
+            {showAdvancedFilters && (
+              <div className="grid gap-3 border border-white/10 bg-zinc-950/70 p-4 sm:grid-cols-2 xl:grid-cols-5">
+                <label className="space-y-2">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">Price Range</span>
+                  <select
+                    value={priceFilter}
+                    onChange={(e) => setPriceFilter(e.target.value)}
+                    className="w-full border border-white/10 bg-black px-3 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white outline-none transition-colors focus:border-orange-500"
+                  >
+                    {priceOptions.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">Availability</span>
+                  <select
+                    value={stockFilter}
+                    onChange={(e) => setStockFilter(e.target.value)}
+                    className="w-full border border-white/10 bg-black px-3 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white outline-none transition-colors focus:border-orange-500"
+                  >
+                    {['All', 'In Stock', 'Low Stock', 'Sold Out'].map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">Drop Type</span>
+                  <select
+                    value={promoFilter}
+                    onChange={(e) => setPromoFilter(e.target.value)}
+                    className="w-full border border-white/10 bg-black px-3 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white outline-none transition-colors focus:border-orange-500"
+                  >
+                    {['All', 'Featured', 'Flash Sale', 'Best Seller', 'New Drop'].map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">Size</span>
+                  <select
+                    value={sizeFilter}
+                    onChange={(e) => setSizeFilter(e.target.value)}
+                    className="w-full border border-white/10 bg-black px-3 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white outline-none transition-colors focus:border-orange-500"
+                  >
+                    {sizeOptions.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-2">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">Color</span>
+                  <select
+                    value={colorFilter}
+                    onChange={(e) => setColorFilter(e.target.value)}
+                    className="w-full border border-white/10 bg-black px-3 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white outline-none transition-colors focus:border-orange-500"
+                  >
+                    {colorOptions.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
           </div>
         </div>
 

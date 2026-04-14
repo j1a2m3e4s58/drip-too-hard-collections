@@ -345,7 +345,15 @@ const Checkout = () => {
       }
 
       clearCart();
-      localStorage.removeItem(CHECKOUT_DRAFT_KEY);
+      // Keep the draft details for repeat checkout on this device (requested behavior).
+      // Clear only the parts that shouldn't carry over.
+      localStorage.setItem(
+        CHECKOUT_DRAFT_KEY,
+        JSON.stringify({
+          ...formData,
+          note: '',
+        }),
+      );
       navigate(`/order-confirmed/${orderRef.id}`);
     } catch (error) {
       console.error('Checkout failed:', error);

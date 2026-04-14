@@ -45,6 +45,24 @@ import { cn, formatGhanaCedis, getVariantStockQuantity, normalizeVariantStock } 
 const safeStringArray = (value: unknown) =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
 
+const safeNumber = (value: unknown, fallback = 0) => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const safeBoolean = (value: unknown, fallback = false) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+
+  return fallback;
+};
+
 const normalizeProductData = (value: Product): Product => ({
   ...value,
   image: typeof value.image === 'string' ? value.image : '',
@@ -55,6 +73,11 @@ const normalizeProductData = (value: Product): Product => ({
   name: typeof value.name === 'string' ? value.name : 'Untitled Product',
   category: typeof value.category === 'string' ? value.category : 'Shop',
   description: typeof value.description === 'string' ? value.description : '',
+  price: safeNumber(value.price),
+  flashSalePrice: safeNumber(value.flashSalePrice),
+  stockCount: value.stockCount === undefined ? undefined : safeNumber(value.stockCount),
+  viewCount: value.viewCount === undefined ? undefined : safeNumber(value.viewCount),
+  inStock: safeBoolean(value.inStock, true),
 });
 
 const safeReviewDate = (value: unknown) => {
@@ -102,20 +125,28 @@ const ProductDetail = () => {
     if (!id) return;
 
     const fetchProduct = async () => {
-      const docRef = doc(db, 'products', id);
-      const docSnap = await getDoc(docRef);
       const importedFallback = findImportedCatalogProduct(id);
 
-      if (docSnap.exists()) {
-        setProduct(normalizeProductData({
-          ...(importedFallback || {}),
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<Product, 'id'>),
-        } as Product));
-      } else {
+      try {
+        const docRef = doc(db, 'products', id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setProduct(normalizeProductData({
+            ...(importedFallback || {}),
+            id: docSnap.id,
+            ...(docSnap.data() as Omit<Product, 'id'>),
+          } as Product));
+        } else {
+          setProduct(importedFallback ? normalizeProductData(importedFallback) : null);
+        }
+      } catch (error) {
+        // Never hard-crash the whole app on navigation due to Firestore/network issues.
+        console.error('Failed to load product details:', error);
         setProduct(importedFallback ? normalizeProductData(importedFallback) : null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchProduct();
@@ -126,14 +157,28 @@ const ProductDetail = () => {
       where('productId', '==', id),
       orderBy('createdAt', 'desc')
     );
-    const unsubReviews = onSnapshot(q, (snapshot) => {
-      setReviews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Review[]);
-    });
+    const unsubReviews = onSnapshot(
+      q,
+      (snapshot) => {
+        setReviews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Review[]);
+      },
+      (error) => {
+        console.error('Failed to subscribe to reviews:', error);
+        setReviews([]);
+      }
+    );
 
-    const unsubProducts = onSnapshot(collection(db, 'products'), (snapshot) => {
-      const next = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() })) as Product[];
-      setCatalogProducts(mergeWithImportedCatalogProducts(next));
-    });
+    const unsubProducts = onSnapshot(
+      collection(db, 'products'),
+      (snapshot) => {
+        const next = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() })) as Product[];
+        setCatalogProducts(mergeWithImportedCatalogProducts(next));
+      },
+      (error) => {
+        console.error('Failed to subscribe to products:', error);
+        setCatalogProducts(mergeWithImportedCatalogProducts([]));
+      }
+    );
 
     return () => {
       unsubReviews();
@@ -194,6 +239,7 @@ const ProductDetail = () => {
         }
       : {};
 
+    // This write is best-effort (e.g. view counter). Customers may not have permission; never crash.
     void setDoc(
       doc(db, 'products', product.id),
       {
@@ -202,7 +248,9 @@ const ProductDetail = () => {
         updatedAt: serverTimestamp(),
       },
       { merge: true }
-    );
+    ).catch((error) => {
+      console.warn('Skipping product viewCount update:', error);
+    });
   }, [product?.id]);
 
   const handleAddReview = async (e: React.FormEvent) => {
@@ -268,9 +316,47 @@ const ProductDetail = () => {
   const isOutOfStock = !product.inStock || (effectiveStockCount !== undefined && effectiveStockCount === 0);
   const maxSelectableQuantity = effectiveStockCount !== undefined && effectiveStockCount > 0 ? effectiveStockCount : 99;
   const productGallery = Array.from(new Set([product.image, ...safeStringArray(product.galleryImages)].filter(Boolean)));
-  const recommendedProducts = catalogProducts
-    .filter((item) => item.id !== product.id && item.category === product.category)
-    .slice(0, 4);
+  const currentProductPrice = (product.flashSalePrice && product.flashSalePrice > 0) ? product.flashSalePrice : product.price;
+  const currentSizeOptions = product.sizeOptions || [];
+  const currentColorOptions = product.colorOptions || [];
+
+  const relatedProducts = catalogProducts
+      .filter((item) => item.id !== product.id)
+      .map((item) => {
+        let score = 0;
+        if (item.category === product.category) {
+          score += 4;
+        }
+        if ((item.sizeOptions || []).some((size) => currentSizeOptions.includes(size))) {
+          score += 2;
+        }
+        if ((item.colorOptions || []).some((color) => currentColorOptions.includes(color))) {
+          score += 2;
+        }
+        if (item.featured) {
+          score += 1;
+        }
+        const priceGap = Math.abs((item.flashSalePrice || item.price) - currentProductPrice);
+        score += Math.max(0, 3 - priceGap / 75);
+
+        return { item, score };
+      })
+      .filter(({ score }) => score > 1)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 4)
+      .map(({ item }) => item);
+
+  const customersAlsoBoughtProducts = (() => {
+    const excludedIds = new Set([product.id, ...relatedProducts.map((item) => item.id)]);
+    return catalogProducts
+      .filter((item) => !excludedIds.has(item.id))
+      .sort((left, right) => {
+        const leftScore = Number(Boolean(left.isBestseller)) + Number(Boolean(left.featured)) + (left.viewCount || 0) / 50;
+        const rightScore = Number(Boolean(right.isBestseller)) + Number(Boolean(right.featured)) + (right.viewCount || 0) / 50;
+        return rightScore - leftScore;
+      })
+      .slice(0, 4);
+  })();
   const recentlyViewedProducts = getRecentlyViewedIds()
     .filter((recentId) => recentId !== product.id)
     .map((recentId) => catalogProducts.find((item) => item.id === recentId))
@@ -569,16 +655,36 @@ const ProductDetail = () => {
           </motion.div>
         </div>
 
-        {(recommendedProducts.length > 0 || recentlyViewedProducts.length > 0) && (
+        {(relatedProducts.length > 0 || customersAlsoBoughtProducts.length > 0 || recentlyViewedProducts.length > 0) && (
           <section className="mt-20 space-y-14 border-t border-white/5 pt-16">
-            {recommendedProducts.length > 0 && (
+            {relatedProducts.length > 0 && (
               <div>
                 <div className="mb-8 flex items-center gap-3">
                   <Sparkles size={18} className="text-orange-400" />
-                  <h2 className="text-3xl font-black uppercase italic tracking-tighter">Complete The Fit</h2>
+                  <h2 className="text-3xl font-black uppercase italic tracking-tighter">Related Products</h2>
                 </div>
+                <p className="mb-6 max-w-2xl text-sm leading-7 text-white/45">
+                  Similar pieces based on category, fit options, and pricing so customers can keep browsing without losing the direction of this item.
+                </p>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8">
-                  {recommendedProducts.map((item) => (
+                  {relatedProducts.map((item) => (
+                    <ProductCard key={item.id} product={item} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {customersAlsoBoughtProducts.length > 0 && (
+              <div>
+                <div className="mb-8 flex items-center gap-3">
+                  <Sparkles size={18} className="text-orange-400" />
+                  <h2 className="text-3xl font-black uppercase italic tracking-tighter">Customers Also Bought</h2>
+                </div>
+                <p className="mb-6 max-w-2xl text-sm leading-7 text-white/45">
+                  Fast-moving products and complementary picks that help customers build a stronger basket around this item.
+                </p>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8">
+                  {customersAlsoBoughtProducts.map((item) => (
                     <ProductCard key={item.id} product={item} />
                   ))}
                 </div>
